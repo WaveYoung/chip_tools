@@ -1,0 +1,133 @@
+#!/usr/bin/python3
+#-*-coding:UTF-8-*-
+
+""""
+filename: creat_project.py
+author  : peach_young
+created : 2025-11-22 17:20
+modified: 
+version : v1.0.0
+useage  : creat_project.py [option] or python3 creat_project.py [option]
+"""
+
+#import package
+import sys
+import os
+import shutil
+
+#create sourceme set project envrionment
+def creat_sourceme(dir):
+    file_name = dir + "/sourceme"
+    content = """#!/bin/bash
+
+##############################################
+#  useage bash command: source sourceme      #
+##############################################
+
+##############################
+#   SYNOPSYS  TOOL  CONFIG   #
+##############################
+#set vcs dir and version,ps:only fix here
+export SYNOPSYS_HOME=/usr/synopsys
+export SYNOPSYS_VERSION=2018.09
+export VCS_VERSION=O-2018.09-SP2
+export VCS_MX_VERSION=O-2018.09-SP2
+export DVE_VERSION=O-2018.09-SP2
+export VERDI_VERSION=Verdi_O-2018.09-SP2
+export SCL_VERSION=2018.06
+#VCS path
+export VCS_HOME=${SYNOPSYS_HOME}/vcs/${VCS_VERSION}
+export VCS_MX_HOME=${SYNOPSYS_HOME}/vcs-mx/${VCS_MX_VERSION}
+#DVE path
+export DVE_HOME=${SYNOPSYS_HOME}/vcs/${DVE_VERSION}
+#VERDI path
+export LD_LIBRARY_PATH=${SYNOPSYS_HOME}/verdi/${VERDI_VERSION}/share/PLI/VCS/LINUX64
+export VERDI_HOME=${SYNOPSYS_HOME}/verdi/${VERDI_VERSION}
+export NOVAS_HOME=${SYNOPSYS_HOME}/verdi/${VERDI_VERSION}
+#licence tool path
+export SCL_HOME=${SYNOPSYS_HOME}/scl/${SCL_VERSION}
+export LM_LICENSE_FILE=27000@$(hostname) #centos redhat use this port@hostname,use hostname cmd check hostname
+#export SNPSLMD_LICENSE_FILE=27000@$(hostname)  #ubuntu use this
+#arch declar
+export VCS_ARCH_OVERRIDE=linux
+#export VCS_TARGET_ARCH="amd64" #ubuntu need add this
+
+##############################
+#   PROJECT PATH             #
+##############################
+export SET_ENV_DIR=$(cd $(dirname ${BASH_SOURCE[0]}))
+export PROJECT_PATH=$(pwd)
+export PROJECT_PATH=${PROJECT_PATH%/verification*}
+export PROJECT_NAME=${PROJECT_PATH##*/}
+
+export DESIGN_PATH=${PROJECT_PATH}/design
+export DOC_PATH=${PROJECT_PATH}/doc
+export VERIF_PATH=${PROJECT_PATH}/verification
+export UT_PATH=${VERIF_PATH}/ut
+export IT_PATH=${VERIF_PATH}/it
+export ST_PATH=${VERIF_PATH}/st
+
+##############################
+#    SET  PATH               #
+##############################
+unset PATH
+export PATH=/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin
+#vcs
+export PATH=${PATH}:${VCS_HOME}/bin
+#dve
+export PATH=${PATH}:${DVE_HOME}/gui/dve/bin
+#verdi
+export PATH=${PATH}:${VERDI_HOME}/bin
+#scl
+export PATH=${PATH}:${SCL_HOME}/linux64/bin
+
+##############################
+#    ALIAS PARAMETER         #
+##############################
+alias g="gvim"
+alias lmg_synopsys="lmgrd -c ${SCL_HOME}/admin/license/Synopsys.dat"
+
+##############################
+#    DSIPLAY INFORMATION     #
+##############################
+echo "g: gvim"
+echo "lmg_synopsys: active the synopsys when machine reboot"
+
+"""
+    try:
+        with open(file_name,'w',encoding='utf-8') as file:
+            file.write(content)
+    except Exception as e:
+        print(f"sourceme file creat failed!{e}")
+        shutil.rmtree(dir)
+        print(dir+" creat failed!")
+
+def main():
+    #get command
+    argv_len = len(sys.argv)
+    if(argv_len == 2):
+        proj_name = sys.argv[1]
+        proj_dir  = proj_name
+    elif(argv_len == 3):
+         proj_name = sys.argv[1]
+         proj_path = sys.argv[2]
+         proj_dir  = proj_path+"/"+proj_name
+    else: 
+        print("creat project argv input error! eg: creat_project proj_name [proj_path]")
+        sys.exit(2)
+    #creat project dir
+    if not os.path.exists(proj_dir):
+        os.mkdir(proj_dir)
+        os.mkdir(proj_dir+"/doc")
+        os.mkdir(proj_dir+"/design")
+        os.mkdir(proj_dir+"/verification")
+        os.mkdir(proj_dir+"/verification/ut")
+        os.mkdir(proj_dir+"/verification/it")
+        os.mkdir(proj_dir+"/verification/st")
+        creat_sourceme(proj_dir)
+        print(proj_name+" creat success!")
+    else:
+        print(proj_dir+" is exists!")
+
+if __name__=="__main__":
+    main()
