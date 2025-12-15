@@ -1,0 +1,642 @@
+#!/usr/bin/python3
+#-*-coding:UTF-8-*-
+
+""""
+filename: build_testbench
+author  : peach_young
+mailbox : 309704001@qq.com
+created : 2025-11-30 15:40
+modified: 
+version : v1.0.0
+useage  : build_testbench [option] or python3 build_testbench [option]
+"""
+
+#import package
+import sys
+import os
+import shutil
+import re
+import getopt
+from datetime import datetime
+
+#insert context to file 
+#file_name  : which file to insert
+#context    : what context want to insert
+#ref_context: insert refrence context
+#back_front : insert front or back to ref_context: 0-back(default),1-front
+def insert_file(file_name,context,ref_context,back_front):
+  #finde where to insert
+  with open(file_name,'r') as file:
+    for num, line in enumerate(file, 1):
+      if ref_context in line:
+        position = num
+  #insert front or back
+  with open(file_name, 'r') as file:
+    lines = file.readlines()
+  with open(file_name,'w+') as file:
+    for index, line in enumerate(lines):
+      if index == position - 1:
+        if back_front == 1:
+          file.write(context+"\n"+line)
+        else:
+          file.write(line+context+"\n")
+      else:
+        file.write(line)
+
+#create class
+#file_path   : which file to write context.
+#class_name  : which class want to create.
+#father_class: class extends for
+#param       : class paramters
+#type        : component or object
+def build_class(file_path,class_name,father_class,param,type):
+  file_path = file_path + "/" + class_name + ".sv"
+  fp = open(file_path,'w+')
+  # write file context
+  fp.write("`ifndef "+class_name.upper()+"_SV\n")
+  fp.write("`define "+class_name.upper()+"_SV\n\n")
+  fp.write("class "+class_name+" extends "+father_class)
+  if(param!=""):
+    fp.write("#("+param+");\n")
+  else:
+    fp.write(";\n")
+  #tid
+  fp.write("\t//class id\n\tstring tid = get_name();\n\n")
+  #filed automation
+  fp.write("\t//filed autumation\n")
+  fp.write("\t`uvm_"+type+"_utils_begin("+class_name+")\n"\
+             "\t`uvm_"+type+"_utils_end\n\n")
+  #function new
+  fp.write("\t//function new\n"\
+           "\tfunction new(string name = \""+class_name+"\"")
+  if(type == "component"):
+    fp.write(", uvm_component parent = null);\n")
+    fp.write("\t\tsuper.new(name, parent);\n")
+  if(type == "object"):
+    fp.write(");\n")
+    fp.write("\t\tsuper.new(name);\n")
+  fp.write("\tendfunction:new\n")
+  fp.write("\nendclass:"+class_name+"\n\n")
+  fp.write("`endif")
+  fp.close()
+
+#create function and task
+#file_path   : which file to write context.
+#name        : which function or task want to create.
+#param       : func or task paramters
+#type        : function , task, or constraint
+#re_type     : function return type
+def build_func_task(file_path,class_name,name,param,type,re_type="void"):
+  file_path = file_path + "/" + class_name + ".sv"
+  if(name=="post_randomize"):
+    insert_txt = "\textern "
+  else:
+    insert_txt = "\textern virtual "
+  if(type=="function"):
+    insert_txt = insert_txt + "function "+ re_type +" "+name+"("+param+");"
+  elif(type=="task"):
+    insert_txt = insert_txt + "task "+name+"("+param+");"
+  elif(type=="constraint"):
+    insert_txt = "\tconstraint " + name +";"
+  insert_file(file_path,insert_txt,"endclass",1)
+  #add function or task 
+  if(type=="function"):
+    if("phase" in name):
+      insert_txt = "function "+ re_type +" "+class_name+"::"+name+"("+param+");\n"+"\tsuper."+name+"(phase);\nendfunction:"+name+"\n"
+    else:
+      insert_txt = "function "+ re_type +" "+class_name+"::"+name+"("+param+");"+"\nendfunction:"+name+"\n"
+  elif(type=="task"):
+    if("phase" in name):
+      insert_txt = "task "+class_name+"::"+name+"("+param+");\n"+"\tsuper."+name+"(phase);\nendtask:"+name+"\n"
+    else:
+      insert_txt = "task "+class_name+"::"+name+"("+param+");"+"\nendtask:"+name+"\n"
+  elif(type=="constraint"):
+    insert_txt = "constraint "+class_name+"::"+name+"{\n}\n"
+  insert_file(file_path,insert_txt,"`endif",1)
+
+#creat testbench sourceme file
+#dir   where to creat
+def creat_sourceme(dir):
+  if "/ut/" in dir:
+    tb_level = "${UT_PATH}"
+  if "/it/" in dir:
+    tb_level = "${IT_PATH}"
+  if "/st/" in dir:
+    tb_level = "${ST_PATH}"
+  tb_name_sp = dir.rsplit('/',1)
+  tb_name =tb_name_sp[-1]
+  tb_path = tb_level+"/"+tb_name
+  tb_env_path  = "${TB_PATH}"
+  with open(dir+'/sourceme','w',encoding='utf-8') as file:
+    file.write(f"""
+ #!/bin/bash
+
+##############################################
+#  useage bash command: source sourceme      #
+##############################################
+
+##############################
+#   TESTBENCH PATH             #
+##############################
+export TB_PATH={tb_path}
+export BENCH_PATH={tb_env_path}/bench
+export COM_LIB_PATH={tb_env_path}/bench/common_lib
+export CONFIG_PATH={tb_env_path}/config
+export FILE_LIST_PATH={tb_env_path}/config/filelist
+export RUN_PATH={tb_env_path}/run
+export CASE_PATH={tb_env_path}/testcase
+
+##############################
+#    ALIAS PARAMETER         #
+##############################
+#alias g="gvim"
+
+##############################
+#    DSIPLAY INFORMATION     #
+##############################
+#echo "g: gvim"    
+               
+""")
+
+# add project header to sv file
+# dir where to check
+def add_header_to_sv_file(dir):
+  header_file = os.getenv('CHIP_TOOLS')+"/file_header.txt"
+  with open(header_file, 'r', encoding='utf-8') as f:
+    header_info = f.read()
+  for root,dirs,files in os.walk(dir):
+    for file in files:
+      if file.endswith('.sv'):
+        now = datetime.now()
+        header_txt = header_info.replace("{file_name}",file)
+        header_txt = header_txt.replace("{date_time}",now.strftime("%Y-%m-%d %H:%M:%S"))
+        header_txt = header_txt+"\n\n"
+        file_path = os.path.join(root, file)
+        with open(file_path, 'r', encoding='utf-8') as f:
+          content = f.read()
+        if content.startswith(header_txt):
+          continue
+        new_content = header_txt + content
+        with open(file_path, 'w', encoding='utf-8') as f:
+          f.write(new_content)
+
+#build testbench directory structure
+#build_path   : where to create testbench
+#reg_model    : register model file 
+def build_dir(build_path,reg_model):
+  path_bench = build_path+"/bench"
+  path_config = build_path+"/config"
+  path_testcase = build_path+"/testcase"
+  path_sourceme = build_path+"/sourceme"
+  path_reg = path_bench+"/reg_model"
+  #create testbench dir
+  if not os.path.exists(build_path):
+    os.makedirs(build_path)
+    #create files
+    path_file = os.getenv('CHIP_TOOLS')+"/testbench_lib"
+    path_src = path_file+"/bench"
+    if not os.path.exists(path_bench):
+      shutil.copytree(path_src,path_bench)
+    path_src = path_file+"/config"
+    if not os.path.exists(path_config):
+      shutil.copytree(path_src,path_config)
+    path_src = path_file+"/testcase"
+    if not os.path.exists(path_testcase):
+      shutil.copytree(path_src,path_testcase)
+    if not os.path.exists(path_sourceme):
+      creat_sourceme(build_path)
+    #add file header to all sv file
+    add_header_to_sv_file(build_path)
+  if (not os.path.exists(path_reg)) and (reg_model != ""):
+      os.makedirs(path_reg)
+  """
+    # create reg adapter and add to bench_pkg
+    adpt_name =  "reg_adapter"
+    build_class(path_reg,adpt_name,"uvm_reg_adapter","","object")
+    build_func_task(path_reg,adpt_name,"reg2bus","const ref uvm_reg_bus_op rw","function","uvm_sequence_item")
+    file_name = path_reg + "/"+adpt_name+".sv"
+    insert_file(file_name,"//rw.add rw.data rw.kind(UVM_READ,UVM_WRITE) rw.nbits rw.byte_en rw.status(UVM_IS_OK,UVM_IS_X,UVM_NOT_OK)","endfunction:reg2bus",1)
+    build_func_task(path_reg,adpt_name,"bus2reg","uvm_sequence_item bus_item, ref uvm_reg_bus_op rw","function")
+    insert_file(file_name,"//rw.add rw.data rw.kind(UVM_READ,UVM_WRITE) rw.nbits rw.byte_en rw.status(UVM_IS_OK,UVM_IS_X,UVM_NOT_OK)","endfunction:bus2reg",1)
+    file_name = path_bench + "/bench_pkg.sv"
+    insert_file(file_name,"`include \"reg_model/"+adpt_name+".sv\"","//include files",0)
+    #instance adapter
+    file_name = path_bench +"/base_test.sv"
+    insert_file(file_name,"\t"+adpt_name+" adapter;\n\t"+adpt_name+" mon_adapter;\n\t//uvm_reg_predictor#(bus_transaction) mon_predictor;","//register model",0)
+    insert_file(file_name,"\tadapter = new(\"adapter\");\n\tmon_adapter = new(\"mon_adapter\");\n\t//mon_predictor = new(\"mon_predictor\",this)","//create regmodel and adapter",0)
+    insert_file(file_name,"\t//mon_predictor.adapter = mon_adapter;\n\t//env.bus_agt.ap.connect(mon_predictor.bus_in);","//connect regmodel adapter and predictor",0)
+  if reg_model != "":
+    if(os.path.exists(reg_model)):
+      shutil.copy(reg_model,path_reg)
+    else:
+      print("reg model file :"+reg_model+" do not exists!")
+      sys.exit(-1)
+    #include reg model pakage file
+    file_name = path_bench +"/bench_pkg.sv"
+    reg_model = reg_model.split('/')[-1]
+    flag_exsis = False
+    with open(file_name,'r') as file:
+      if(reg_model in file.read()):
+        flag_exsis = True
+    if(flag_exsis == False):
+      insert_file(file_name,"`include \"reg_model/"+ reg_model +"\"","//include files",0)
+      file_name = path_bench +"/base_test.sv"
+      reg_model = reg_model.split('.')[0]
+      inst_reg_model = "rm_"+reg_model
+      insert_file(file_name,"\t"+reg_model+" "+inst_reg_model+";","//register model",0)
+      insert_file(file_name,"\t"+inst_reg_model+" = "+reg_model+"::type_id::create(\""+inst_reg_model+"\",this);\
+      \n\t"+inst_reg_model+".configure(null,\"test_top.DUT\");\n\t"+inst_reg_model+".build();\
+      \n\t"+inst_reg_model+".lock_model();\n\t"+inst_reg_model+".reset();\n\t//"+inst_reg_model+".set_hdl_path_root(\"test_top.DUT\");","//create regmodel and adapter",0)
+      insert_file(file_name,"\t"+inst_reg_model+".default_map.set_sequencer(vseqr,adapter);\
+      \n\t"+inst_reg_model+".default_map.set_auto_predict(1);\n\t//mon_predictor.map = "+inst_reg_model+".default_map;","//connect regmodel adapter and predictor",0)
+"""
+#build package file
+#file_dir   : where to create pakgefile
+#pkg_name   : package name
+def build_pkg_file(file_dir,pkg_name):
+  file_name = file_dir + "/" + pkg_name + ".sv"
+  fp = open(file_name,'w+')
+  # write file context
+  fp.write("`ifndef "+pkg_name.upper()+"_SV\n")
+  fp.write("`define "+pkg_name.upper()+"_SV\n\n")
+  fp.write("//include package file\n\n//interface\n\n")
+  fp.write("package "+pkg_name+";\n")
+  fp.write("import uvm_pkg::*;\n//import packages\n")
+  fp.write("endpackage:"+pkg_name+"\n\n")
+  fp.write("`endif")
+  fp.close()
+
+#build interface file
+#file_dir   : where to create interface
+#if_name    : interface name
+def build_interface(file_dir,if_name):
+  file_name = file_dir + "/" + if_name +".sv"
+  fp = open(file_name,'w+')
+  # write file context
+  fp.write("`ifndef "+if_name.upper()+"_SV\n")
+  fp.write("`define "+if_name.upper()+"_SV\n\n")
+  fp.write("interface automatic "+if_name+"(input clk, input rst_n);\n\n")
+  fp.write("\t//signal\n\tlogic \t\t\ta;\n\tlogic [1:0] b;\n\tlogic \t\t\tc;\n\n")
+  fp.write("\t//driver clocking block\n\tclocking cb_drv @(posedge clk);\n\t\tdefault input #1step output #1;\
+  \n\t\tinput \ta;\n\t\toutput \tb;\n\t\tinout \tc;\n\tendclocking:cb_drv\n\n")
+  fp.write("\t//monitor clocking block\n\tclocking cb_mon @(posedge clk);\n\t\tdefault input #1step output #1;\
+  \n\t\tinput \ta;\n\t\toutput \tb;\n\t\tinout \tc;\n\tendclocking:cb_mon\n\n")
+  fp.write("\t//modport define\n\tmodport mp_dut(input clk,rst_n,a,b,output c);\
+  \n\tmodport mp_tb(input clk,rst_n,c,output a,b);\n")
+  fp.write("\nendinterface:"+if_name)
+  fp.write("\n`endif")
+  fp.close()
+
+#build agent file struct
+#dir_path   : where to create agent 
+#agt_name   : agent name
+#env_name   : which environment, agent blong to 
+def build_agent(dir_path,agt_name,env_name):
+  agt_path = dir_path + "/" + agt_name
+  agt_pkg_file = agt_path + "/" + agt_name + "_pkg.sv"
+  agt_name_split = agt_name.split('_')[0]
+  if not os.path.exists(agt_path):
+    #create agent path
+    os.makedirs(agt_path)
+    #include agent path to vrf.f
+    file_name = dir_path +"/../../build/filelist/vrf.f"
+    insert_file(file_name,"+incdir+${BENCH_PATH}/"+env_name+"/"+agt_name,"+incdir+",0)
+    #create agent package file
+    build_pkg_file(agt_path,agt_name+"_pkg")
+    #add agent package to env package
+    file_name = dir_path + "/"+env_name+"_pkg.sv"
+    insert_file(file_name,"`include \""+agt_name+"_pkg.sv\"","//include package file",0)
+    insert_file(file_name,"import "+agt_name+"_pkg::*;","//import packages",0)
+    #add agent package to bench package
+    file_name = dir_path + "/../bench_pkg.sv"
+    insert_file(file_name,"`include \""+agt_name+"_pkg.sv\"","//include package file",0)
+    insert_file(file_name,"import "+agt_name+"_pkg::*;","//import packages",0)
+    #create agent interface
+    if_name = agt_name_split + "_interface"
+    build_interface(agt_path,if_name)
+    #define interface in test_top
+    file_name = dir_path + "/../test_top.sv"
+    insert_file(file_name,"\t"+if_name+" "+agt_name_split+"_if(clk, rst_n);","//interface define",0)
+    insert_file(agt_pkg_file,"`include \""+if_name+".sv\"","//interface",0)
+    #create transaction
+    trans_name = agt_name_split + "_trans"
+    build_class(agt_path,trans_name,"uvm_sequence_item","","object")
+    file_name = agt_path + "/"+trans_name+".sv"
+    insert_file(file_name,"\n\t//declar struct data\n\t// typedef enum{READ, WRITE} kind_e;\
+    \n\n\t//declar parameter and data\n\trand bit [31:0] a;\n\trand bit \t\t\t\tb;\n\trand byte \t\t\tc[];","string tid = get_name();",0)
+    insert_file(file_name,"\t//parameters:(UVM_ALL_ON, UVM_DEFAULT, UVM_COPY, UVM_NOCOPY, UVM_COMPARE,\
+    UVM_NOCOMPARE, \n\t//UVM_PRINT, UVM_NOPRINT, UVM_RECORD, UVM_NORECORD, UVM_PACK, UVM_NOPACK)\
+    \n\t//data format:(UVM_BIN UVM_DEC, UVM_UNSIGNED, UVM_OCT, UVM_HEX, UVM_STRING, UVM_TIME, UVM_REAL)","//filed autumation",0)
+    insert_file(file_name,"\t\t`uvm_field_int(a, UVM_ALL_ON)\n\t\t`uvm_field_int(b, UVM_ALL_ON | UVM_NOPACK)\
+    \n\t\tif(b) begin\n\t\t\t`uvm_field_array_int(c, UVM_ALL_ON | UVM_BIN)\n\t\tend","`uvm_object_utils_end",1)
+    build_func_task(agt_path,trans_name,"cons","","constraint")
+    insert_file(file_name,"\t//constraint","constraint cons;",1)
+    insert_file(file_name,"\tsoft a inside{[1:4],[8:10]};\n\tsoft b==1;\n\tsoft c.size()==3;","}",1)
+    build_func_task(agt_path,trans_name,"post_randomize","","function")
+    insert_file(agt_pkg_file,"`include \""+trans_name+".sv\"","endpackage",1)
+    #create sequencer
+    seqr_name = agt_name_split + "_sequencer"
+    build_class(agt_path,seqr_name,"uvm_sequencer",trans_name,"component")
+    build_func_task(agt_path,seqr_name,"main_phase","uvm_phase phase","task")
+    insert_file(agt_pkg_file,"`include \""+seqr_name+".sv\"","endpackage",1)
+    #set sequencer in virtual senquencer
+    file_name = dir_path + "/../virtual_sequencer.sv"
+    seqr_inst_name = agt_name_split+"_seqr"
+    insert_file(file_name,"\t"+seqr_name+"\t"+seqr_inst_name+";","//delcare sub sequenver",0)
+    #create sequence
+    seq_name = agt_name_split + "_sequence"
+    file_name = agt_path + "/"+seq_name+".sv"
+    build_class(agt_path,seq_name,"uvm_sequence",trans_name,"object")
+    build_func_task(agt_path,seq_name,"pre_start","","task")
+    build_func_task(agt_path,seq_name,"post_start","","task")
+    build_func_task(agt_path,seq_name,"body","","task")
+    insert_file(file_name,"\n\t//delcar p_sequencer\n\t`uvm_declare_p_sequencer("+seqr_name+")\n\n\t//transacton\
+    \n\t"+trans_name+" tr;","`uvm_object_utils_end",0)
+    insert_file(file_name,"\tif(starting_phase == null)\n\t\tstarting_phase = get_starting_phase();//for uvm-1.2, uvm-1.1 cancel this line\
+    \n\tif(starting_phase != null)\n\t\tstarting_phase.raise_objection(this);//or starting_phase.raise_objection(get_sequencer());","endtask:pre_start",1)
+    insert_file(file_name,"\tif(starting_phase == null)\n\t\tstarting_phase = get_starting_phase();//for uvm-1.2, uvm-1.1 cancel this line\
+    \n\tif(starting_phase != null)\n\t\tstarting_phase.drop_objection(this);//or starting_phase.drop_objection(get_sequencer());","endtask:post_start",1)
+    insert_file(file_name,"\t`uvm_do(tr)\n\t//`uvm_do_on(tr,m_sequencer)\n\t//`uvm_do_on_with(tr,p_sequencer){}\
+    \n\t//`uvm_creat(tr);\n\t//tr.randomize();\n\t//`uvm_send(tr,p_sequencer);\n\t//tr.start(p_sequencer);","endtask:body",1)
+    insert_file(agt_pkg_file,"`include \""+seq_name+".sv\"","endpackage",1)
+    #create driver
+    drv_name = agt_name_split + "_driver"
+    file_name = agt_path + "/"+drv_name+".sv"
+    build_class(agt_path,drv_name,"uvm_driver",trans_name,"component")
+    build_func_task(agt_path,drv_name,"build_phase","uvm_phase phase","function")
+    build_func_task(agt_path,drv_name,"main_phase","uvm_phase phase","task")
+    build_func_task(agt_path,drv_name,"drive_one_pkt",trans_name+" tr","task")
+    insert_file(file_name,"\n\t//define virtual interface\n\tvirtual "+ if_name +" vif;","string tid = get_name();",0)
+    insert_file(file_name,"\t//get virtual interface\n\tif(!uvm_config_db#(virtual "+if_name+")::get(this, \"\", \""+agt_name_split+"_vif\", vif))\
+    \n\t\t`uvm_fatal($sformatf(\"%s:ERROR\", get_full_name()), \"Driver virutal interface not set!\");","super.build_phase(phase);",0)
+    insert_file(file_name,"\twhile(1) begin\n\t\tseq_item_port.get_next_item(req);\t//block\n\t\t//seq_item_port.try_next_item(req);\t//non_block\
+    \n\t\treq.print();\n\t\tdrive_one_pkt(req);\n\t\tseq_item_port.item_done(rsp);\n\tend","super.main_phase(phase);",0)
+    insert_file(agt_pkg_file,"`include \""+drv_name+".sv\"","endpackage",1)
+    #create monitor
+    mon_name = agt_name_split + "_monitor"
+    file_name = agt_path + "/"+mon_name+".sv"
+    build_class(agt_path,mon_name,"uvm_monitor","","component")
+    build_func_task(agt_path,mon_name,"build_phase","uvm_phase phase","function")
+    build_func_task(agt_path,mon_name,"main_phase","uvm_phase phase","task")
+    build_func_task(agt_path,mon_name,"collect_one_pkt",trans_name+" tr","task")
+    insert_file(file_name,"\n\t//define virtual interface\n\tvirtual "+ if_name +" vif;\n\n\t//transaction\
+    \n\t"+trans_name+" tr;\n\n\t//tlm port\n\tuvm_analysis_port#("+trans_name+") ap;","string tid = get_name();",0)
+    insert_file(file_name,"\t//create tlm port\n\tap = new(\"ap\", this);","super.build_phase(phase);",0)
+    insert_file(file_name,"\t//get virtual interface\n\tif(!uvm_config_db#(virtual "+if_name+")::get(this, \"\", \""+agt_name_split+"_vif\", vif))\
+    \n\t\t`uvm_fatal($sformatf(\"%s:ERROR\", get_full_name()), \"Monitor virutal interface not set!\");","super.build_phase(phase);",0)
+    insert_file(file_name,"\t//while(1) begin\n\t\ttr = new(\"tr\");\n\t\tcollect_one_pkt(tr);\n\t\tap.write(tr);\n\t//end","super.main_phase(phase);",0)
+    insert_file(agt_pkg_file,"`include \""+mon_name+".sv\"","endpackage",1)
+    #create agent class and  phase
+    build_class(agt_path,agt_name,"uvm_agent","","component")
+    build_func_task(agt_path,agt_name,"build_phase","uvm_phase phase","function")
+    build_func_task(agt_path,agt_name,"connect_phase","uvm_phase phase","function")
+    build_func_task(agt_path,agt_name,"main_phase","uvm_phase phase","task")
+    #add sequencer dirver monitor to agent
+    file_name = agt_path + "/"+agt_name+".sv"
+    insert_file(file_name,"\n\t"+seqr_name+" seqr;\n\t"+drv_name+"  \t drv;\n\t"+mon_name+"\t mon;\
+    \n\n\t//tlm port\n\tuvm_analysis_port#("+trans_name+") ap;","`uvm_component_utils_end",0)
+    insert_file(file_name,"\tif(is_active == UVM_ACTIVE) begin\n\t\tdrv  = "+drv_name+"::type_id::create(\"drv\", this);\
+    \n\t\tseqr = "+seqr_name+"::type_id::create(\"seqr\", this);\n\tend\n\tmon = "+mon_name+"::type_id::create(\"mon\", this);\
+    \n\t//create tlm port\n\tap = new(\"ap\", this);","super.build_phase(phase);",0)
+    insert_file(file_name,"\t//connect seqr and driver\n\tif(is_active == UVM_ACTIVE) begin\
+    \n\t\tdrv.seq_item_port.connect(seqr.seq_item_export);\n\t\tdrv.rsp_port.connect(seqr.rsp_export);\n\tend\
+    \n\t//connetct tlm port\n\tmon.ap.connect(this.ap); //or this.ap = monitor.ap;","super.connect_phase(phase);",0)
+    #add agent class include to package file
+    insert_file(agt_pkg_file,"`include \""+agt_name+".sv\"","endpackage",1)
+    #add agt to env
+    file_name = dir_path + "/"+env_name+".sv"
+    i_agt_name = "i_"+agt_name_split+"_agt"
+    o_agt_name = "o_"+agt_name_split+"_agt"
+    insert_file(file_name,"\t"+agt_name+" "+i_agt_name+";\n\t"+agt_name+" "+o_agt_name+";","//define class",0)
+    insert_file(file_name,"\t"+i_agt_name+" = "+agt_name+"::type_id::create(\""+i_agt_name+"\", this);\
+    \n\t"+o_agt_name+" = "+agt_name+"::type_id::create(\""+o_agt_name+"\", this);\
+    \n\t"+i_agt_name+".is_active=UVM_ACTIVE;\n\t"+o_agt_name+".is_active=UVM_PASSIVE;","super.build_phase(phase);",0)
+    #set interface in test_top
+    file_name = dir_path + "/../test_top.sv"
+    env_name_split = env_name.split('_')[0]
+    env_inst_name = env_name_split+"_ev"
+    insert_file(file_name,"\t\tuvm_config_db#(virtual "+if_name+")::set(null, \"uvm_test_top."+env_inst_name+".*\", \""+agt_name_split+"_vif\", "+agt_name_split+"_if);","//config virtual interface",0)
+    #connect sequencer to virtual sequencer
+    file_name = dir_path + "/../base_test.sv"
+    insert_file(file_name,"\tvseqr."+agt_name_split+"_seqr = "+env_inst_name+"."+i_agt_name+".seqr;","//connect virtual sequenver",0)
+    #add sequence to virtual sequence
+    file_name = dir_path + "/../virtual_sequence.sv"
+    seq_inst_name = agt_name_split+"_seq"
+    insert_file(file_name,"\t"+seq_name+"\t"+seq_inst_name+";","//declar sequence",0)
+    insert_file(file_name,"\t"+seq_inst_name+" = "+seq_name+"::type_id::create(\""+seq_inst_name+"\");\n\t"+seq_inst_name+".start(p_sequencer."+seqr_inst_name+");","endtask:body",1)
+    #define, create and connect tlm fifo to environment
+    file_name = dir_path + "/"+env_name+".sv"
+    amfifo_name = agt_name_split+"_agt_mdl_fifo"
+    msfifo_name = agt_name_split+"_mdl_scb_fifo"
+    asfifo_name = agt_name_split+"_agt_scb_fifo"
+    insert_file(file_name,"\tuvm_tlm_analysis_fifo#("+trans_name+")\t"+amfifo_name+";\
+    \n\tuvm_tlm_analysis_fifo#("+trans_name+")\t"+msfifo_name+";\
+    \n\tuvm_tlm_analysis_fifo#("+trans_name+")\t"+asfifo_name+";","//define tlm fifo",0)
+    insert_file(file_name,"\t"+amfifo_name+" = new(\""+amfifo_name+"\",this);\n\t"+msfifo_name+" = new(\""+msfifo_name+"\",this);\
+    \n\t"+asfifo_name+" = new(\""+asfifo_name+"\",this);","//create TLM fifo",0)
+    #define refrece model tlm port
+    file_name = dir_path + "/"+env_name_split+"_refmodel.sv"
+    get_port_name = agt_name_split+"_get_port"
+    ap_port_name = agt_name_split+"_ap"
+    recv_tr_name = agt_name_split+"_recv_tr"
+    send_tr_name = agt_name_split+"_send_tr"
+    insert_file(file_name,"\tuvm_blocking_get_port#("+trans_name+")\t"+get_port_name+";\
+    \n\tuvm_analysis_port#("+trans_name+")\t"+ap_port_name+";","//TLM port",0)
+    insert_file(file_name,"\t"+get_port_name+" = new(\""+get_port_name+"\", this);\
+    \n\t"+ap_port_name+" = new(\""+ap_port_name+"\",this);","super.build_phase(phase);",0)
+    insert_file(file_name,"\t"+trans_name+"\t"+recv_tr_name+";\n\t"+trans_name+"\t"+send_tr_name+";","//define transaction",0)
+    insert_file(file_name,"\t\t"+get_port_name+".get("+recv_tr_name+");","//get transaction",0)
+    insert_file(file_name,"\t\t"+send_tr_name+" = new(\""+send_tr_name+"\");\
+    \n\t\t"+send_tr_name+".copy("+recv_tr_name+");","//prodct refmodel transaction",0)
+    insert_file(file_name,"\t\t"+ap_port_name+".write("+send_tr_name+");","//send transaction",0)
+    #define score board tlm port
+    file_name = dir_path + "/"+env_name_split+"_scoreboard.sv"
+    exp_port_name = agt_name_split+"_exp_port"
+    act_port_name = agt_name_split+"_act_port"
+    exp_tr_name = agt_name_split+"_exp_tr"
+    act_tr_name = agt_name_split+"_act_tr"
+    insert_file(file_name,"\tuvm_blocking_get_port#("+trans_name+")\t"+exp_port_name+";\
+    \n\tuvm_blocking_get_port#("+trans_name+")\t"+act_port_name+";","//TLM port",0)
+    insert_file(file_name,"\t"+exp_port_name+" = new(\""+exp_port_name+"\",this);\
+    \n\t"+act_port_name+" = new(\""+act_port_name+"\",this);","super.build_phase(phase);",0)
+    insert_file(file_name,"\t"+trans_name+"\t"+exp_tr_name+";\n\t"+trans_name+"\t"+act_tr_name+";","//define transaction",0)
+    insert_file(file_name,"\t\t"+exp_port_name+".get("+exp_tr_name+");\n\t\t"+act_port_name+".get("+act_tr_name+");","//get compare transaction",0)
+    insert_file(file_name,"\t\tresult = "+exp_tr_name+".compare("+act_tr_name+");\n\t\tif(result) begin\
+    \n\t\t\t`uvm_info(tid,\"compare success!\",UVM_LOW);\n\t\tend\n\t\telse begin\n\t\t\t`uvm_error(tid,\"compare failed!\");\
+    \n\t\tend","//compare transaction",0)
+    #connect tlm fifo port
+    file_name = dir_path + "/"+env_name+".sv"
+    insert_file(file_name,"\t"+i_agt_name+".ap.connect("+amfifo_name+".analysis_export);\
+    \n\tref_model."+get_port_name+".connect("+amfifo_name+".blocking_get_export);\
+    \n\tref_model."+ap_port_name+".connect("+msfifo_name+".analysis_export);\
+    \n\tscb."+exp_port_name+".connect("+msfifo_name+".blocking_get_export);\
+    \n\t"+o_agt_name+".ap.connect("+asfifo_name+".analysis_export);\
+    \n\tscb."+act_port_name+".connect("+asfifo_name+".blocking_get_export);","super.connect_phase(phase);",0)
+
+#build testbench environment
+#env_path : whrer to create env path
+#env_name : env directory name
+def build_env(dir_path,env_name):
+  env_path = dir_path + "/" + env_name
+  env_pkg_file = env_path + "/" + env_name + "_pkg.sv"
+  env_name_split = env_name.split('_')[0]
+  if not os.path.exists(env_path):
+    #create env path
+    os.makedirs(env_path)
+    #include env path to vrf.f
+    file_name = dir_path +"/../build/filelist/vrf.f"
+    insert_file(file_name,"+incdir+${BENCH_PATH}/"+env_name,"+incdir+",0)
+    #create env package file
+    build_pkg_file(env_path,env_name+"_pkg")
+    #add env package to bench package
+    file_name = dir_path + "/bench_pkg.sv"
+    insert_file(file_name,"`include \""+env_name+"_pkg.sv\"","//include package file",0)
+    insert_file(file_name,"import "+env_name+"_pkg::*;","//import packages",0)
+    #create refrence model
+    refmdl_name = env_name_split + "_refmodel"
+    file_name = env_path + "/" + refmdl_name + ".sv"
+    build_class(env_path,refmdl_name,"uvm_component","","component")
+    build_func_task(env_path,refmdl_name,"build_phase","uvm_phase phase","function")
+    build_func_task(env_path,refmdl_name,"main_phase","uvm_phase phase","task")
+    insert_file(file_name,"\n\t//define transaction\n\n\t//TLM port","`uvm_component_utils_end",0)
+    insert_file(file_name,"\t//while(1) begin\n\t\t//get transaction\n\t\t//prodct refmodel transaction\
+    \n\t\t//send transaction\n\t//end","super.main_phase(phase);",0)
+    insert_file(env_pkg_file,"`include \""+refmdl_name+".sv\"","endpackage",1)
+    #create score board
+    scb_name = env_name_split + "_scoreboard"
+    file_name = env_path + "/" + scb_name + ".sv"
+    build_class(env_path,scb_name,"uvm_scoreboard","","component")
+    build_func_task(env_path,scb_name,"build_phase","uvm_phase phase","function")
+    build_func_task(env_path,scb_name,"main_phase","uvm_phase phase","task")
+    insert_file(file_name,"\n\t//define transaction\n\n\t//TLM port","`uvm_component_utils_end",0)
+    insert_file(file_name,"\tint result;","super.main_phase(phase);",1)
+    insert_file(file_name,"\t//while(1) begin\n\t\t//get compare transaction\n\t\t//compare transaction\
+    \n\t\t//print act_tr and exp_tr for debug\n\t\t//`uvm_info(tid,\"expect transaction:\",UVM_DEBUG);\n\t\t//exp_tr.print();\
+    \n\t\t//`uvm_info(tid,\"act transaction:\",UVM_DEBUG);\n\t\t//act_tr.print();\n\t//end","super.main_phase(phase);",0)
+    insert_file(env_pkg_file,"`include \""+scb_name+".sv\"","endpackage",1)
+    #create env class and common function and task phase
+    file_name = env_path + "/" + env_name + ".sv"
+    build_class(env_path,env_name,"uvm_env","","component")
+    build_func_task(env_path,env_name,"build_phase","uvm_phase phase","function")
+    build_func_task(env_path,env_name,"connect_phase","uvm_phase phase","function")
+    build_func_task(env_path,env_name,"main_phase","uvm_phase phase","task")
+    insert_file(file_name,"\n\t//define class\n\n\t//define tlm fifo\n\t// int fifo_size = 1;\
+    \n\t// uvm_tlm_fifo#(transaction_base) tlm_fifo;","`uvm_component_utils_end",0)
+    insert_file(file_name,"\t//create TLM fifo\n\t// tlm_fifo = new(\"tlm_fifo\", this, fifo_size);","super.build_phase(phase);",0)
+    insert_file(env_pkg_file,"`include \""+env_name+".sv\"","endpackage",1)
+    #instance refmodel scoreboad to env
+    insert_file(file_name,"\t"+refmdl_name+" \tref_model;\n\t"+scb_name+" scb;","//define class",0)
+    insert_file(file_name,"\tref_model = "+refmdl_name+"::type_id::create(\"ref_model\", this);\
+    \n\tscb = "+scb_name+"::type_id::create(\"scb\", this);","super.build_phase(phase);",0)
+    #add env to base_test
+    file_name = dir_path + "/base_test.sv"
+    inst_name = env_name_split+"_ev"
+    insert_file(file_name,"\t"+env_name+" "+inst_name+";","//statement children class",0)
+    insert_file(file_name,"\t"+inst_name+" = "+env_name+"::type_id::create(\""+inst_name+"\", this);","//create env",0)
+    
+# print help infor
+def print_usage():
+  print("usage:")
+  print(" build_testbench -p <ut/it/st> -n <testbench_name> [-e <environment_name>] [-a <agent_name>] [-m <regmodel_file_path>]")
+  print("options:")
+  print(" -h,--h   help information.")
+  print(" -p,--p   where you want to create. eg:-p ut/it/st or --p=ut/it/st")
+  print(" -n,--n   testbench name set. eg:-n testbench_name --p=testbench_name")
+  print(" -e,--e   environment name you want to create. eg:-e environment_name or --e=environment_name")
+  print(" -a,--a   agent name you want to create. eg:-a agent_name or --a=agent_name")
+  print(" -m,--m   create reg model in env. eg:-m regmodel_file_path or --m=regmodel_file_path")
+
+#build script main entrance
+def build():
+  #check project setting
+  proj_path = os.getenv('PROJECT_PATH')
+  proj_name = os.getenv('PROJECT_NAME')
+  if( not proj_path or not proj_name):
+    print("please source sourceme first in project path!")
+    sys.exit(-1)
+  cmd = ' '.join(sys.argv)
+  testbench_level=""
+  testbench_name=""
+  env_name = ""
+  agt_name = ""
+  regmodel_name = ""
+  # check command error
+  res = re.fullmatch(r"^(.*build_testbench){1}(\s+[-]{1,2}[a-zA-Z]+((\s+[.\a-zA-Z0-9_-]+)|(={1}[.\a-zA-Z0-9_-]+))?)+", cmd)
+  if res == None:
+    print("Error: command ["+cmd+"] has no argument!")
+    print_usage()
+    sys.exit(-1)
+  #analysis options
+  cmd_lst = cmd.split(' ')
+  try:
+    opts, args = getopt.getopt(cmd_lst[1:], "hp:n:e:a:m:",["h", "p=", "n=", "e=", "a=", "m="])
+    for opt, arg in opts:
+      if opt in ("-h", "--h"):
+        print_usage()
+        sys.exit(-1)
+      elif opt in ("-p", "--p"):
+        testbench_level = arg
+      elif opt in ("-n", "--n"):
+        testbench_name = arg
+      elif opt in ("-e", "--e"):
+        env_name = arg
+      elif opt in ("-a", "--a"):
+        agt_name = arg
+      elif opt in ("-m", "--m"):
+        regmodel_name = arg
+  except getopt.GetoptError:
+    print("Error: command ["+cmd+"] option fault!")
+    print_usage()
+    sys.exit(-1)
+  #check argument
+  if(testbench_level == "" or testbench_name == "" or (agt_name != "" and  env_name == "")):
+    print("Error: command ["+cmd+"] option value fault!")
+    print_usage()
+    sys.exit(-1)
+  #check name formate is valiable
+  err_name = ''
+  if(testbench_level != "ut" and testbench_level != "it" and testbench_level != "st"):
+    err_name += testbench_level + ' '
+  if(testbench_name != ''):
+    res_name = re.fullmatch(r"^[a-zA-Z0-9_-]+$", testbench_name)
+    if(res_name == None):
+        err_name += testbench_name + ' '
+  if(env_name != ''):
+    res_name = re.fullmatch(r"^[a-zA-Z0-9_-]+$", env_name)
+    if(res_name == None):
+        err_name += env_name + ' '
+  if(agt_name != ''):
+    res_name = re.fullmatch(r"^[a-zA-Z0-9_-]+$", agt_name)
+    if(res_name == None):
+        err_name += agt_name + ' '
+  if(regmodel_name != ''):
+    res_name = re.fullmatch(r"^[.a-zA-Z0-9\/_-]+.sv$", regmodel_name)
+    if(res_name == None):
+        err_name += regmodel_name
+  if(err_name != ''):
+    print("Error: command ["+cmd+"] option value '"+ err_name+"' fault!")
+    print_usage()
+    sys.exit(-1)
+  #get testbench directory
+  if   testbench_level == "ut" : testbench_path=os.getenv('UT_PATH')
+  elif testbench_level == "it" : testbench_path=os.getenv('IT_PATH')
+  elif testbench_level == "st" : testbench_path=os.getenv('ST_PATH')
+  testbench_path = testbench_path + "/" + testbench_name
+  #create testbench
+  build_dir(testbench_path,regmodel_name)
+"""
+  #create envrionment
+  if(env_name != ""):
+    if("_env" not in env_name):
+      env_name = env_name + "_env"
+    bench_path = dir + "/" + proj_name + "/bench"
+    build_env(bench_path,env_name)
+  #create agent
+  if(agt_name != ""):
+    if("_agent" not in agt_name):
+      agt_name = agt_name + "_agent"
+    env_path = dir + "/" + proj_name + "/bench/" + env_name
+    build_agent(env_path,agt_name,env_name)
+"""
+if __name__ == "__main__":
+  build()

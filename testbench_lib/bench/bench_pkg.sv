@@ -1,0 +1,15 @@
+`ifndef BENCH_PKG_SV
+`define BENCH_PKG_SV
+
+//include package file
+
+//import packages
+
+//include files
+`include "virtual_sequencer.sv"
+`include "virtual_sequence.sv"
+`include "base_test.sv"
+`include "assert/examp_assert.sv"
+`include "test_top.sv"
+
+`endif

@@ -1,0 +1,1 @@
+#-f ${DESIGN_PATH}/dut_list.l

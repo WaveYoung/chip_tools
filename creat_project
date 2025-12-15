@@ -2,12 +2,13 @@
 #-*-coding:UTF-8-*-
 
 """"
-filename: creat_project.py
+filename: creat_project
 author  : peach_young
+mailbox : 309704001@qq.com
 created : 2025-11-22 17:20
 modified: 
 version : v1.0.0
-useage  : creat_project.py [option] or python3 creat_project.py [option]
+useage  : creat_project proj_name [proj_path] or python3 creat_project proj_name [proj_path]
 """
 
 #import package
@@ -35,6 +36,7 @@ export VCS_MX_VERSION=O-2018.09-SP2
 export DVE_VERSION=O-2018.09-SP2
 export VERDI_VERSION=Verdi_O-2018.09-SP2
 export SCL_VERSION=2018.06
+export CHIP_TOOLS=~/chip_tools
 #VCS path
 export VCS_HOME=${SYNOPSYS_HOME}/vcs/${VCS_VERSION}
 export VCS_MX_HOME=${SYNOPSYS_HOME}/vcs-mx/${VCS_MX_VERSION}
@@ -80,6 +82,8 @@ export PATH=${PATH}:${DVE_HOME}/gui/dve/bin
 export PATH=${PATH}:${VERDI_HOME}/bin
 #scl
 export PATH=${PATH}:${SCL_HOME}/linux64/bin
+#chip_tools
+export PATH=${PATH}:${CHIP_TOOLS}
 
 ##############################
 #    ALIAS PARAMETER         #

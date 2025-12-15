@@ -1,0 +1,2 @@
+"case_dir":"", "case_name":"base_test", "comp_opt":"", "sim_opt":"+UVM_TESTNAME=base_test +dump_deep=0 +scop_heri=test_top"
+"case_dir":"testcase/example_case.sv", "case_name":"example_case", "comp_opt":"", "sim_opt":"+UVM_TESTNAME=example_case +dump_deep=0 +scop_heri=test_top"

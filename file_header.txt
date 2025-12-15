@@ -1,0 +1,8 @@
+//filename: {file_name}
+//author  : your_name
+//mailbox : e-mail@xx.xx
+//created : {date_time}
+//modified: 
+//version : v1.0.0
+//company : your_comp(ltd.)
+//license : GNU

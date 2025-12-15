@@ -44,10 +44,41 @@ export VCS_VERSION=vcs-version             eg:O-2018.09-SP2
 export VCS_MX_VERSION=vcs-mx-version       eg:O-2018.09-SP2   
 export DVE_VERSION=dve-version             eg:O-2018.09-SP2   
 export VERDI_VERSION=verdi-version         eg:Verdi_O-2018.09-SP2   
-export SCL_VERSION=scl-version             eg:2018.06   
+export SCL_VERSION=scl-version             eg:2018.06  
+export CHIP_TOOLS=chip_tools-dir           eg:~/chip_tools              
 ```
 ## set project environment
 ```
 cd proj_path
 source sourceme
 ```
+
+## edit header for code file
+edit file_header.txt
+```
+//filename: {file_name}
+//author  : your_name
+//mailbox : e-mail@xx.xx
+//created : {date_time}
+//modified: 
+//version : v1.0.0
+//company : your_comp(ltd.)
+//license : GNU
+```
+text in { } please do not fix it, others you can fix it as you like.
+
+## create test bench
+use build_testbench command + options as below to build project, envrionment and agent   
+```
+build_testbench -p <ut/it/st> -n <testbench_name> [-e <environment_name>] [-a <agent_name>] [-m <regmodel_file_path>]
+options:
+ -h,--h   help information.
+ -p,--p   where you want to create. eg:-p ut/it/st or --p=ut/it/st
+ -n,--n   testbench name set. eg:-n testbench_name --p=testbench_name
+ -e,--e   environment name you want to create. eg:-e environment_name or --e=environment_name
+ -a,--a   agent name you want to create. eg:-a agent_name or --a=agent_name
+ -m,--m   create reg model in env. eg:-m regmodel_file_path or --m=regmodel_file_path
+```     
+eg:     
+`build_testbench -p ut -n testbench_name -m tools/regmodel_script/reg_model.sv -e env_name -a agent_name`    
+notice: if set agent_name, env_name must be set first.
