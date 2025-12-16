@@ -50,8 +50,18 @@ def insert_file(file_name,context,ref_context,back_front):
 #param       : class paramters
 #type        : component or object
 def build_class(file_path,class_name,father_class,param,type):
+  # file header
+  header_file = os.getenv('CHIP_TOOLS')+"/file_header.txt"
+  with open(header_file, 'r', encoding='utf-8') as f:
+    header_info = f.read()
   file_path = file_path + "/" + class_name + ".sv"
   fp = open(file_path,'w+')
+  # write file header
+  now = datetime.now()
+  header_info = header_info.replace("{file_name}", class_name + ".sv")
+  header_info = header_info.replace("{date_time}",now.strftime("%Y-%m-%d %H:%M:%S"))
+  header_info = header_info+"\n\n"
+  fp.write(header_info)
   # write file context
   fp.write("`ifndef "+class_name.upper()+"_SV\n")
   fp.write("`define "+class_name.upper()+"_SV\n\n")
@@ -208,8 +218,7 @@ def build_dir(build_path,reg_model):
     #add file header to all sv file
     add_header_to_sv_file(build_path)
   if (not os.path.exists(path_reg)) and (reg_model != ""):
-      os.makedirs(path_reg)
-  """
+    os.makedirs(path_reg)
     # create reg adapter and add to bench_pkg
     adpt_name =  "reg_adapter"
     build_class(path_reg,adpt_name,"uvm_reg_adapter","","object")
@@ -249,13 +258,22 @@ def build_dir(build_path,reg_model):
       \n\t"+inst_reg_model+".lock_model();\n\t"+inst_reg_model+".reset();\n\t//"+inst_reg_model+".set_hdl_path_root(\"test_top.DUT\");","//create regmodel and adapter",0)
       insert_file(file_name,"\t"+inst_reg_model+".default_map.set_sequencer(vseqr,adapter);\
       \n\t"+inst_reg_model+".default_map.set_auto_predict(1);\n\t//mon_predictor.map = "+inst_reg_model+".default_map;","//connect regmodel adapter and predictor",0)
-"""
+
 #build package file
 #file_dir   : where to create pakgefile
 #pkg_name   : package name
 def build_pkg_file(file_dir,pkg_name):
+  header_file = os.getenv('CHIP_TOOLS')+"/file_header.txt"
+  with open(header_file, 'r', encoding='utf-8') as f:
+    header_info = f.read()
   file_name = file_dir + "/" + pkg_name + ".sv"
   fp = open(file_name,'w+')
+  # write file header
+  now = datetime.now()
+  header_info = header_info.replace("{file_name}", pkg_name + ".sv")
+  header_info = header_info.replace("{date_time}",now.strftime("%Y-%m-%d %H:%M:%S"))
+  header_info = header_info+"\n\n"
+  fp.write(header_info)
   # write file context
   fp.write("`ifndef "+pkg_name.upper()+"_SV\n")
   fp.write("`define "+pkg_name.upper()+"_SV\n\n")
@@ -270,8 +288,17 @@ def build_pkg_file(file_dir,pkg_name):
 #file_dir   : where to create interface
 #if_name    : interface name
 def build_interface(file_dir,if_name):
+  header_file = os.getenv('CHIP_TOOLS')+"/file_header.txt"
+  with open(header_file, 'r', encoding='utf-8') as f:
+    header_info = f.read()
   file_name = file_dir + "/" + if_name +".sv"
   fp = open(file_name,'w+')
+  # write file header
+  now = datetime.now()
+  header_info = header_info.replace("{file_name}", if_name + ".sv")
+  header_info = header_info.replace("{date_time}",now.strftime("%Y-%m-%d %H:%M:%S"))
+  header_info = header_info+"\n\n"
+  fp.write(header_info)
   # write file context
   fp.write("`ifndef "+if_name.upper()+"_SV\n")
   fp.write("`define "+if_name.upper()+"_SV\n\n")
@@ -299,7 +326,7 @@ def build_agent(dir_path,agt_name,env_name):
     #create agent path
     os.makedirs(agt_path)
     #include agent path to vrf.f
-    file_name = dir_path +"/../../build/filelist/vrf.f"
+    file_name = dir_path +"/../../config/filelist/vrf.f"
     insert_file(file_name,"+incdir+${BENCH_PATH}/"+env_name+"/"+agt_name,"+incdir+",0)
     #create agent package file
     build_pkg_file(agt_path,agt_name+"_pkg")
@@ -484,7 +511,7 @@ def build_env(dir_path,env_name):
     #create env path
     os.makedirs(env_path)
     #include env path to vrf.f
-    file_name = dir_path +"/../build/filelist/vrf.f"
+    file_name = dir_path +"/../config/filelist/vrf.f"
     insert_file(file_name,"+incdir+${BENCH_PATH}/"+env_name,"+incdir+",0)
     #create env package file
     build_pkg_file(env_path,env_name+"_pkg")
@@ -624,19 +651,18 @@ def build():
   testbench_path = testbench_path + "/" + testbench_name
   #create testbench
   build_dir(testbench_path,regmodel_name)
-"""
   #create envrionment
   if(env_name != ""):
     if("_env" not in env_name):
       env_name = env_name + "_env"
-    bench_path = dir + "/" + proj_name + "/bench"
+    bench_path = testbench_path + "/bench"
     build_env(bench_path,env_name)
   #create agent
   if(agt_name != ""):
     if("_agent" not in agt_name):
       agt_name = agt_name + "_agent"
-    env_path = dir + "/" + proj_name + "/bench/" + env_name
+    env_path = testbench_path + "/bench/" + env_name
     build_agent(env_path,agt_name,env_name)
-"""
+
 if __name__ == "__main__":
   build()
