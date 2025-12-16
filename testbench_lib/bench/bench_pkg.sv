@@ -1,6 +1,9 @@
 `ifndef BENCH_PKG_SV
 `define BENCH_PKG_SV
 
+//common_lib
+`include "common_lib/lib_pkg.sv"
+
 //include package file
 
 //import packages

@@ -52,7 +52,6 @@ export CHIP_TOOLS=chip_tools-dir           eg:~/chip_tools
 cd proj_path
 source sourceme
 ```
-
 ## edit header for code file
 edit file_header.txt
 ```
@@ -66,7 +65,18 @@ edit file_header.txt
 //license : GNU
 ```
 text in { } please do not fix it, others you can fix it as you like.
-
+## create reg model from csv file
+  use reg command + options as below to build regmodel from csv file.  
+   ```
+   usage:
+    regmodel -i <regmodel_input_csv_file> -o <regmodle_output_sv_file>
+  options:
+    -h,--h   help information.
+    -i,--i   which regmodel csv file you want use. eg:-i <regmodel_input_csv_file> or --i=<regmodel_input_csv_file>
+    -o,--o   ouput system_verilog regmodle file name. eg:-o <regmodle_output_sv_file> or --o=<regmodle_output_sv_file>
+   ```     
+   eg:     
+   `regmodel -i reg.csv -o example_reg.sv`    
 ## create test bench
 use build_testbench command + options as below to build project, envrionment and agent   
 ```
@@ -80,5 +90,5 @@ options:
  -m,--m   create reg model in env. eg:-m regmodel_file_path or --m=regmodel_file_path
 ```     
 eg:     
-`build_testbench -p ut -n testbench_name -m tools/regmodel_script/reg_model.sv -e env_name -a agent_name`    
+`build_testbench -p ut -n testbench_name -m path_to_reg_model/reg_model.sv -e env_name -a agent_name`    
 notice: if set agent_name, env_name must be set first.

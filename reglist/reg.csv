@@ -1,0 +1,5 @@
+register,address,reg_access,field,field_access,reset_value,bitpos_end,bitpos_start,function
+ERR_INFO,0x10C,RO,ERR_Count,RO,0x0,5,0,CNT_error
+,,,RSVD0,RO,0x0,7,6,Reserved
+,,,ERR_Type,RO,0x0,11,8,error_Type
+,,,RSVD1,RO,0x0,31,12,Reserved

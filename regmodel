@@ -1,0 +1,274 @@
+#!/usr/bin/python3
+#-*-coding:UTF-8-*-
+
+############################################################################
+#  useage python command:regmodel.py [option] or python3 build.py [option] #
+############################################################################
+
+import re
+import csv
+import os
+import sys
+import getopt
+from datetime import datetime
+
+#import RgmItem
+class RgmItem:
+  '''
+  classdocs
+  '''
+  def __init__(self):
+    '''
+    Constructor
+    '''
+    self._properties = {'register':''
+                        ,'address':'0x00'
+                        ,'fields':[]
+                        }
+
+class GenRgm:
+    '''
+    classdocs
+    '''
+    def __init__(self):
+        '''
+        Constructor
+        '''
+        self._rgmItemList = []
+        self._curRegName = ''
+        self._uvmFileName = ''
+        # self._cFileName = 'your_io.h'
+
+
+    # Excel/CSV format file read/write methods
+    def readRgmFile(self, filename):
+        "read register file and update the internal database"
+        rgmFile = open(filename, 'r')
+        self._rgmFileName = filename
+        reader = csv.DictReader(rgmFile)
+        for infos in reader:
+            self._readRgmInfos(infos)
+
+    def _readRgmInfos(self, infos):
+        """extract register information from string line
+           and return it as a dictionary
+        """
+        if(infos['register'] != ''):
+            rgmObj = RgmItem()
+            self._curRegName = infos['register']
+            rgmObj._properties['register'] = infos['register']
+            rgmObj._properties['address'] = infos['address']
+            rgmObj._properties['reg_access'] = infos['reg_access']
+            self._rgmItemList.append(rgmObj)
+        fieldInfos = self._readFieldInfos(infos)
+        self._rgmItemList[-1]._properties['fields'].append(fieldInfos)
+
+
+    def _readFieldInfos(self, infos):
+        fieldInfos = {}
+        fieldInfos['field'] = infos['field']
+        fieldInfos['field_access'] = infos['field_access']
+        fieldInfos['reset_value'] = infos['reset_value']
+        fieldInfos['bitpos_end'] = infos['bitpos_end']
+        fieldInfos['bitpos_start'] = infos['bitpos_start']
+        fieldInfos['function'] = infos['function']
+        return fieldInfos
+
+
+    def genUVMFile(self, filename):
+        # file header
+        header_file = os.getenv('CHIP_TOOLS')+"/file_header.txt"
+        with open(header_file, 'r', encoding='utf-8') as f:
+          header_info = f.read()
+        reg_name_list = filename.split('/')
+        reg_name = ''
+        for item in reg_name_list:
+          if ".sv" in item:
+            reg_name = item[:item.find(".sv")]
+        with open(filename, 'w') as uvmFile:
+            # write file header
+            now = datetime.now()
+            header_info = header_info.replace("{file_name}", reg_name + ".sv")
+            header_info = header_info.replace("{date_time}",now.strftime("%Y-%m-%d %H:%M:%S"))
+            header_info = header_info+"\n\n"
+            uvmFile.write(header_info)
+            def _writeUVMHeader():
+                uvmFile.write("`ifndef "+reg_name.upper()+"_SV\n")
+                uvmFile.write("`define "+reg_name.upper()+"_SV\n\n")
+			          #change your_rgm to your_reg_name
+                # uvmFile.write('package your_rgm_pkg;\n')
+                # uvmFile.write('  import uvm_pkg::*;\n')
+                # uvmFile.write('  `include "uvm_macros.svh"\n')
+            def _writeRegClass(rgmObj):
+                uvmFile.write('class %s_reg extends uvm_reg;\n' % rgmObj._properties['register'])
+                uvmFile.write('  `uvm_object_utils(%s_reg)\n' % rgmObj._properties['register'])
+                for fd in rgmObj._properties['fields']:
+                    uvmFile.write('  rand uvm_reg_field %s;\n' % fd['field'])
+                uvmFile.write('  constraint cons{\n    //%s.value==0;\n  }\n' % fd['field'])
+                uvmFile.write('  covergroup value_cg;\n')
+                uvmFile.write('    option.per_instance = 1;\n')
+                for fd in rgmObj._properties['fields']:
+                    uvmFile.write('    %s: coverpoint %s.value[%s:%s];\n' % (fd['field'],fd['field'],fd['bitpos_end'],fd['bitpos_start']))
+                uvmFile.write('  endgroup\n')
+                uvmFile.write('\
+  function new(string name = "%s_reg");\n\
+    super.new(name, 32, UVM_CVR_ALL);//UVM_NO_COVERAGE\n\
+    void\'(set_coverage(UVM_CVR_FIELD_VALS));\n\
+    if(has_coverage(UVM_CVR_FIELD_VALS)) begin\n\
+      value_cg = new();\n\
+    end\n\
+  endfunction\n' % rgmObj._properties['register'])
+                uvmFile.write('  virtual function void build();\n')
+                for fd in rgmObj._properties['fields']:
+                    uvmFile.write('    %s = uvm_reg_field::type_id::create("%s");\n' % (fd['field'], fd['field']))
+                for fd in rgmObj._properties['fields']:
+                    uvmFile.write('    %s.configure(this, %0d, %s, "%s", 0, \'h%s, 1, 0, 0);\n' % (fd['field'], int(fd['bitpos_end'])-int(fd['bitpos_start'])+1, fd['bitpos_start'], fd['field_access'], fd['reset_value'].replace('0x','')))
+                uvmFile.write('  endfunction\n')
+                uvmFile.write('\
+  function void sample(\n\
+    uvm_reg_data_t data,\n\
+    uvm_reg_data_t byte_en,\n\
+    bit            is_read,\n\
+    uvm_reg_map    map\n\
+    );\n\
+    super.sample(data, byte_en, is_read, map);\n\
+    sample_values(); \n\
+  endfunction\n\
+  function void sample_values();\n\
+    super.sample_values();\n\
+    if (get_coverage(UVM_CVR_FIELD_VALS)) begin\n\
+      value_cg.sample();\n\
+    end\n\
+  endfunction\n\
+endclass:'+rgmObj._properties['register']+'_reg\n\n\
+/*class example_mem extends uvm_mem;\n\
+  `uvm_object_utils(example_mem)\n\
+  function new(string name = \"example_mem\");\n\
+    super.new(name,mem_deepth,mem_width);\n\
+  endfunction\n\
+endclass:example_mem*/\n\n\
+/*class regfile extends uvm_reg_file;\n\
+  `uvm_object_utils(regfile)\n\
+  function new(string name = \"regfile\");\n\
+    super.new(name);\n\
+  endfunction\n\
+endclass:regfile*/\n\n')
+            def _writeRgmClass(reg_name):
+			    #change your_rgm to your_reg_name line121 122
+                if "reg" not in reg_name:
+                  reg_name = reg_name + "_model"
+                uvmFile.write('class '+reg_name+' extends uvm_reg_block;\n')
+                uvmFile.write('  `uvm_object_utils('+reg_name+')\n')			
+                for rg in self._rgmItemList:
+                    uvmFile.write('  rand %s_reg %s;\n' % (rg._properties['register'], rg._properties['register']))
+                uvmFile.write('  //rand example_mem test_mem;\n  //rand sub_block sb_ins;\n  //rand regfile file_a;\n')
+                uvmFile.write('\
+  uvm_reg_map map;\n\
+  function new(string name = "'+reg_name+'");\n\
+    super.new(name, UVM_NO_COVERAGE);\n\
+  endfunction\n\
+  virtual function void build();\n')
+                for rg in self._rgmItemList:
+                    uvmFile.write('    %s = %s_reg::type_id::create("%s");\n' % (rg._properties['register'], rg._properties['register'], rg._properties['register']))
+                    uvmFile.write('    %s.configure(this);\n' % rg._properties['register'])
+                    uvmFile.write('    %s.build();\n' % rg._properties['register'])
+                uvmFile.write('    //test_mem = example_mem::type_id::create("test_mem",,get_full_name());\n')
+                uvmFile.write('    //test_mem.confugure(this,"test_mem_hdl_path");\n')
+                uvmFile.write('    //sb_ins = sub_block::type_id::create("sb_ins");\n')
+                uvmFile.write('    //sb_ins.confugure(this,"sb_ins_hdl_path");\n    //sb_ins.build();\n    //sb_ins.lock_model();\n')
+                uvmFile.write('    //file_a = regfile::type_id::create("file_a",,get_full_name());\n')
+                uvmFile.write('    //file_a.confugure(this,null_or_point_to_other_regfile"reg_file_hdl_path");\n')
+                uvmFile.write('    map = create_map("map", \'h0, 4, UVM_LITTLE_ENDIAN);//UVM_BIG_ENDIAN\n')
+                for rg in self._rgmItemList:
+                    uvmFile.write('    map.add_reg(%s, 32\'h%s, "%s");\n' % (rg._properties['register'], rg._properties['address'].replace('0x',''), rg._properties['reg_access']))
+                uvmFile.write('    //map.add_mem(test_mem,\'h1000);\n    //map.add_submap(sb_ins.default_map,16\'h12000);\n')
+                # for rg in self._rgmItemList:
+                uvmFile.write('    //reg_name.[filed_name.]add_hdl_path_slice("reg_or_filed_name", start_bit_pos, width_length);\n')
+                uvmFile.write('    //add_hdl_path("back_door_path");\n')
+                uvmFile.write('    lock_model();\n')
+                uvmFile.write('  endfunction\n')
+                uvmFile.write('endclass:'+reg_name+'\n\n')
+                uvmFile.write("`endif")
+                # uvmFile.write('endpackage\n')
+
+            #genUVMFile main function below
+            _writeUVMHeader()
+            for rgmObj in self._rgmItemList:
+                _writeRegClass(rgmObj)
+            _writeRgmClass(reg_name)
+
+    def genCFile(self):
+        pass
+
+#generate uvm register model from csv file
+def GenUVMRgm():
+  file_list = analy_cmd()
+  input_file = file_list[0]
+  output_file = file_list[1]
+  print('%s \ngen reg model started \n%s\n' % (40*'*', 40*'*'))
+  gen = GenRgm()
+  gen.readRgmFile(input_file)
+  gen.genUVMFile(output_file)
+  print('%s \ngen reg model PASSED \n%s\n' % (40*'*', 40*'*'))
+
+# print help infor
+def print_usage():
+  print("usage:")
+  print(" regmodel -i <regmodel_input_csv_file> -o <regmodle_output_sv_file>")
+  print("options:")
+  print(" -h,--h   help information.")
+  print(" -i,--i   which regmodel csv file you want use. eg:-i <regmodel_input_csv_file> or --i=<regmodel_input_csv_file>")
+  print(" -o,--o   ouput system_verilog regmodle file name. eg:-o <regmodle_output_sv_file> or --o=<regmodle_output_sv_file>")
+
+#analysis command return input and output file
+def analy_cmd():
+  cmd = ' '.join(sys.argv)
+  input_file = ""
+  output_file = ""
+  # check command error
+  res = re.fullmatch(r"^(.*regmodel){1}(\s+[-]{1,2}[a-zA-Z]+((\s+[.\a-zA-Z0-9_-]+)|(={1}[.\a-zA-Z0-9_-]+))?)+", cmd)
+  if res == None:
+    print("Error: command ["+cmd+"] has no argument!")
+    print_usage()
+    sys.exit(-1)
+  #analysis options
+  cmd_lst = cmd.split(' ')
+  try:
+    opts, args = getopt.getopt(cmd_lst[1:], "hi:o:",["h", "i=", "o="])
+    for opt, arg in opts:
+      if opt in ("-h", "--h"):
+        print_usage()
+        sys.exit(-1)
+      elif opt in ("-i", "--i"):
+        input_file = arg
+      elif opt in ("-o", "--o"):
+        output_file = arg
+  except getopt.GetoptError:
+    print("Error: command ["+cmd+"] option fault!")
+    print_usage()
+    sys.exit(-1)
+  #check argument
+  if(input_file == "" or output_file == ""):
+    print("Error: command ["+cmd+"] option value fault!")
+    print_usage()
+    sys.exit(-1)
+  #check name formate is valiable
+  err_name = ''
+  if(input_file != ''):
+    res_name = re.fullmatch(r"^[a-zA-Z0-9/_-]+.csv$", input_file)
+    if(res_name == None):
+        err_name = input_file
+  if(output_file != ''):
+    res_name = re.fullmatch(r"^[a-zA-Z0-9/_-]+.sv$", output_file)
+    if(res_name == None):
+        err_name = output_file
+  if(err_name != ''):
+    print("Error: command ["+cmd+"] option value '"+ err_name+"' fault!")
+    print_usage()
+    sys.exit(-1)
+  return [input_file,output_file]
+
+if __name__ == '__main__' :
+  GenUVMRgm()
+
+
