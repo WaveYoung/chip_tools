@@ -152,6 +152,7 @@ export TB_PATH={tb_path}
 export BENCH_PATH={tb_env_path}/bench
 export COM_LIB_PATH={tb_env_path}/bench/common_lib
 export CONFIG_PATH={tb_env_path}/config
+export DUMP_CFG_PATH={tb_env_path}/config/dump
 export FILE_LIST_PATH={tb_env_path}/config/filelist
 export RUN_PATH={tb_env_path}/run
 export CASE_PATH={tb_env_path}/testcase

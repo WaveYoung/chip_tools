@@ -1,0 +1,310 @@
+#!/usr/bin/python3
+#-*-coding:UTF-8-*-
+
+""""
+filename: prun
+author  : peach_young
+mailbox : 309704001@qq.com
+created : 2025-12-18 11:30
+modified: 
+version : v1.0.0
+useage  : prun [option] or python3 prun [option]
+"""
+
+#import package
+import sys
+import getopt
+import argparse
+import os
+import re
+import time
+import datetime
+import subprocess
+import shutil
+
+#  command analysis class    #
+class Analysiscmd(object):
+  # class information doc,call Analysiscmd.__doc__
+  'this is verification case run script'
+
+  #static parameters
+
+  #constrction function get command and set default arg value
+  def __init__(self):
+    self.comm_comp_file = str(os.getenv('CONFIG_PATH'))+"/comp.cfg"
+    self.comm_sim_file = str(os.getenv('CONFIG_PATH'))+"/sim.cfg"
+    self.rtl_file_list = str(os.getenv('FILE_LIST_PATH'))+"/rtl.f"
+    self.vrf_file_list = str(os.getenv('FILE_LIST_PATH'))+"/vrf.f"
+    self.dump_filter_file = str(os.getenv('DUMP_CFG_PATH'))+"/dump_filter.cfg"
+    self.dump_scope_file = str(os.getenv('DUMP_CFG_PATH'))+"/dump_scope.cfg"
+    self.coverage = None
+    self.seed = None
+    self.run_times = None
+    self.test_case_name = None
+    self.wave_type_name="fsdb" #vcd
+    self.dump_wave = None
+    self.dump_with_mda = None
+    self.comp_opt = None
+    self.sim_opt = None
+    self.run_path = None
+    self.result_dir = None
+    self.result_file = "run_result.txt"
+    self.nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+  
+  #disctruction function
+  def __del__(self):
+    self.comm_comp_file = None
+    self.comm_sim_file = None
+    self.rtl_file_list = None
+    self.vrf_file_list = None
+    self.dump_filter_file = None
+    self.dump_scope_file = None
+    self.coverage = None
+    self.seed = None
+    self.run_times = None
+    self.test_case_name = None
+    self.wave_type_name = None
+    self.dump_wave = None
+    self.dump_with_mda = None
+    self.case_dir = None
+    self.comp_opt = None
+    self.sim_opt = None
+    self.run_path = None
+    self.result_dir = None
+    self.result_file = None
+    self.nowtime = None
+
+  #analysis command
+  def analysis_cmd(self):
+    #analysis options
+    parser = argparse.ArgumentParser(description="this script for run verifaction case",epilog="the end")
+    group = parser.add_mutually_exclusive_group()
+    parser.add_argument("case_name",help="the case name you want to run.",type=str)
+    parser.add_argument("--comp",help="compile arguments.eg:--comp 'comp_opt' or --comp='comp_opt'",type=str)
+    parser.add_argument("--sim",help="simulation arguments.eg:--sim 'sim_opt' or --sim='sim_opt'",type=str)
+    group.add_argument("-d","--dump",help="dump wave without array.eg: -d or --dump",action="store_true")
+    group.add_argument("-da","--dumpall",help="dump wave with array data.eg:--da or --dumpall",action="store_true")
+    parser.add_argument("-c","--cov", help="open coverage collection.eg: -c or --cov",action="store_true")
+    parser.add_argument("-s","--seed",help="sim seed value.eg: -s seed_value or --seed=seed_value ",type=int,default=0)
+    parser.add_argument("-rt","--runtimes",help="case run times.eg: -rt run_times or --runtimes=run_times",type=int,default=1)
+    try:
+      args = parser.parse_args()
+      # print(args)
+      self.test_case_name = args.case_name
+      self.comp_opt = args.comp
+      self.sim_opt = args.sim
+      self.dump_wave = args.dump
+      self.dump_with_mda = args.dumpall
+      self.coverage = args.cov
+      self.seed = args.seed
+      self.run_times = args.runtimes
+    except:
+      sys.exit(-1)
+
+  # analysis sim log and write to result log file
+  def analysis_simlog(self):
+    #analysis sim.log
+    pass_flag=0
+    fail_flag=0
+    result_str=""
+    sim_time=""
+    sim_time_measure=""
+    cpu_time=""
+    cpu_time_measure=""
+    dir_simlog = self.result_dir + "/sim.log"
+    if(os.path.exists(dir_simlog) == True):
+      with open(dir_simlog, 'r') as f_logfile:
+        sim_log_line = f_logfile.readline()
+        while sim_log_line:
+          if("EXCUTE SIMULATION PASS" in sim_log_line):
+            pass_flag = 1
+          if("EXCUTE SIMULATION FAIL" in sim_log_line):
+            fail_flag = 1
+          if(re.findall("^Time:\s[0-9]*", sim_log_line)):
+            sim_time = sim_log_line.split()[1]
+            sim_time_measure = sim_log_line.split()[2]
+          if(re.findall("^CPU Time:\s[0-9]*", sim_log_line)):
+            cpu_time = sim_log_line.split()[2]
+            cpu_time_measure = sim_log_line.split()[3]
+          sim_log_line = f_logfile.readline()
+      if(pass_flag == 1):
+        result_str = "case_name:" + self.test_case_name + "\t  result:PASS" + "\t  seed:" + self.seed + "\t  sim_time:" + sim_time + " " + sim_time_measure + "\t  cpu_time:" + cpu_time + " " + cpu_time_measure + "\n"
+      else:
+        if(fail_flag == 1):
+          result_str = "case_name:" + self.test_case_name + "\t  result:FAIL" + "\t  seed:" + self.seed + "\t  sim_time:" + sim_time + " " + sim_time_measure + "\t  cpu_time:" + cpu_time + " " + cpu_time_measure + "\n"
+        else:
+          result_str = "case_name:" + self.test_case_name + "\t  result:ERROR" + "\t  seed:" + self.seed + "\t  sim_time:UNKOWN" + "\t  cpu_time:UNKOWN" + "\n"
+      with open(self.result_file,'a', encoding='utf-8') as f:
+        f.writelines([result_str])
+    else:
+      result_str = "case_name:" + self.test_case_name + "\t  result:ERROR" + "\t  seed:" + self.seed + "\t  sim_time:UNKOWN" + "\t  cpu_time:UNKOWN" + "\n"
+      with open(self.result_file,'a', encoding='utf-8') as f:
+        f.writelines([result_str])
+    print(result_str)
+    f_logfile = open(dir_simlog,'a')
+    f_logfile.writelines([result_str])
+    f_logfile.close()
+
+  #create result dir
+  def build_result_path(self):
+    #create result dir
+    self.result_dir = self.run_path + "/"+self.test_case_name
+    #create reault file
+    self.result_file = self.run_path + "/" + self.result_file
+    if(os.path.exists(self.result_dir) == False):
+      os.makedirs(self.result_dir)
+    else:
+      cmd="rm -rf "+self.result_dir+"/*"
+      os.system(cmd)
+    #create result file
+    if not os.path.exists(self.result_file):
+      with open(self.result_file,'w', encoding='utf-8') as f:
+        pass
+    #add time stamp to result file
+    with open(self.result_file,'a', encoding='utf-8') as f:
+      f.writelines(self.nowtime+"\n")
+
+  # create Makefile
+  def create_Makefile(self):
+    cov_fname = self.test_case_name + "_" + self.nowtime
+    # create makefile
+    makefile_name=self.result_dir+"/Makefile"
+    f_mk = open(makefile_name, 'w')
+    # write makefile option
+    f_mk.writelines(['all: comp sim\n'])
+    # write vcs option
+    f_mk.writelines(["comp:\n","\tvcs "])
+    #read and write compile arg
+    txt=""
+    sim_name = ""
+    with open(self.comm_comp_file, 'r') as f_comp:
+      line = f_comp.readline()
+      while line:
+        line = line.replace('\n', ' ')
+        res = re.fullmatch(r"^[^#\/].*", line)
+        if res != None:
+          res1 = re.fullmatch(r"^-o\s.*", line)
+          if res1 != None:
+            sim_name = line.split(' ',1)[1]
+          if not (line.isspace()):
+            txt =txt + line
+        line = f_comp.readline()
+    #coverage comp arg
+    if self.coverage:
+      txt = txt + " -cm line+tgl+cond+branch+fsm+assert"
+      txt = txt + " -cm_dir " + self.result_dir + "/coverage/" + cov_fname
+      txt = txt + " -cm_name " + self.test_case_name
+      txt = txt + " -cm_hier 0"
+    # rtl and verfi filelist arg
+    txt = txt + " -f " + self.rtl_file_list + " -f " + self.vrf_file_list + " "
+    # case comp option args
+    if self.comp_opt != None:
+      txt = txt + self.comp_opt
+    f_mk.write(txt)
+    #read and write sim arg
+    f_mk.writelines(["\nsim:\n","\t./"+sim_name])
+    txt = ""
+    with open(self.comm_sim_file, 'r') as f_sim:
+      line = f_sim.readline()
+      while line:
+        line = line.replace('\n', ' ')
+        res = re.fullmatch(r"^[^#\/].*", line)
+        if (res != None) and (not(line.isspace())):
+          txt =txt + line
+        line = f_sim.readline()
+    # dump wave arg
+    #common dump arg
+    if self.wave_type_name == "fsdb":
+      if self.dump_wave or self.dump_with_mda: 
+        #copy dump_scope file to result dir
+        shutil.copy(self.dump_scope_file ,self.result_dir+"/")
+        txt = txt + " +fsdb+autoflush +fsdb+filter_file="+ self.dump_filter_file +" +wave=" + self.wave_type_name
+      #dump with mda args
+      if self.dump_with_mda:
+        txt = txt + " +fsdb+mda +fsdb+filter=mda,struct +mda=1"
+      #dump without mda args
+      if self.dump_wave:
+        txt = txt + " +fsdb+nomda"
+    if self.wave_type_name == "vcd":
+      if self.dump_wave or self.dump_with_mda: 
+         txt = txt +" +wave=" + self.wave_type_name
+    txt = txt + " "
+    if self.sim_opt != None:
+      if("+UVM_TESTNAME=" in self.sim_opt):
+        txt = txt + self.sim_opt
+      else:
+        txt = txt + self.sim_opt + " +UVM_TESTNAME=" + self.test_case_name
+    else:
+      txt = txt + " +UVM_TESTNAME=" + self.test_case_name
+    # coverage sim args
+    if self.coverage:
+      txt = txt + " -cm line+tgl+cond+branch+fsm+assert"
+      txt = txt + " -cm_dir " + self.result_dir + "/coverage/" + cov_fname
+    # seed arg
+    txt = txt + " +ntb_random_seed=" + self.seed + "\n"
+    f_mk.write(txt)
+    # write clean option
+    f_mk.writelines(["clean:\n","\trm -rf DVEfiles novas.* verdiLog *.log csrc simv* *.key vc_hdrs.h *.vpd *.fsdb *.vf"])
+    f_mk.close()
+
+  #set random_seed
+  def random_seed(self):
+    if(int(self.seed) <= 0):
+      self.seed = int(time.time())
+    self.seed = str(self.seed)
+
+  #execute compile and sim
+  def execute_cmp_sim(self):
+    dir_makefile = self.result_dir + "/Makefile"
+    #excute first comp and sim
+    cmd = "make all -f " + dir_makefile + " -C "+ self.result_dir
+    os.system(cmd)
+    self.analysis_simlog()
+    #excute run_times sim
+    for i in range(self.run_times - 1):
+      self.seed = int(time.time() + i + 1)
+      self.seed = str(self.seed)
+      f_makefile = open(dir_makefile, 'r+')
+      list_makefile = f_makefile.readlines()
+      for j in range(len(list_makefile)):
+        if("+ntb_random_seed=" in list_makefile[j]):
+          list_makefile[j] = re.sub("\+ntb_random_seed=[0-9]*","+ntb_random_seed="+str(self.seed), list_makefile[j])
+        if("-cm_name" in list_makefile[j]):
+          list_makefile[j] = re.sub("-cm_name .*_[0-9]* ","-cm_name "+self.test_case_name+"_"+str(i+1)+" ", list_makefile[j]) 
+        if("-l sim" in list_makefile[j]):
+          list_makefile[j] = re.sub("-l sim.*.log ","-l sim"+str(i+1)+".log ", list_makefile[j]) 
+      f_makefile.close()
+      f_makefile = open(dir_makefile, 'w+')
+      f_makefile.writelines(list_makefile)
+      f_makefile.close()
+      cmd = "make sim -f "+dir_makefile+" -C "+self.result_dir
+      os.system(cmd)
+      self.analysis_simlog()
+
+  #check environment setting
+  def check_environment(self):
+    proj_path = os.getenv('PROJECT_PATH')
+    tb_path   = os.getenv('TB_PATH')
+    if not proj_path:
+      print("please source sourceme first in project path!")
+      sys.exit(-1)
+    if not tb_path:
+      print("please source sourceme first in testbench path!")
+      sys.exit(-1)
+    #create run path
+    self.run_path = os.getenv('RUN_PATH')
+    if not os.path.exists(self.run_path):
+        os.mkdir(self.run_path)
+
+  #run command
+  def run(self):
+    self.check_environment()
+    self.analysis_cmd()
+    self.build_result_path()
+    self.random_seed()
+    self.create_Makefile()
+    self.execute_cmp_sim()
+
+#create object and call run function
+exect = Analysiscmd()
+exect.run()

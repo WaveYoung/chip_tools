@@ -92,3 +92,33 @@ options:
 eg:     
 `build_testbench -p ut -n testbench_name -m path_to_reg_model/reg_model.sv -e env_name -a agent_name`    
 notice: if set agent_name, env_name must be set first.
+## run case or caselist
+   use prun command + options as below to run case or caselist    
+   ```
+  usage: prun [-h] [--comp COMP] [--sim SIM] [-d | -da] [-c] [-s SEED]
+            [-rt RUNTIMES]
+            case_name
+
+   this script for run verifaction case
+
+   positional arguments:
+   case_name             the case name you want to run.
+
+   optional arguments:
+   -h, --help            show this help message and exit
+   --comp COMP           compile arguments.eg:--comp 'comp_opt' or
+                           --comp='comp_opt'
+   --sim SIM             simulation arguments.eg:--sim 'sim_opt' or
+                           --sim='sim_opt'
+   -d, --dump            dump wave without array.eg: -d or --dump
+   -da, --dumpall        dump wave with array data.eg:--da or --dumpall
+   -c, --cov             open coverage collection.eg: -c or --cov
+   -s SEED, --seed SEED  sim seed value.eg: -s seed_value or --seed=seed_value
+   -rt RUNTIMES, --runtimes RUNTIMES
+                           case run times.eg: -rt run_times or
+                           --runtimes=run_times
+
+   the end
+   ```     
+   eg:     
+   `prun example_case`    

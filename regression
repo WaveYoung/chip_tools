@@ -1,0 +1,37 @@
+#!/usr/bin/python3
+#-*-coding:UTF-8-*-
+
+""""
+filename: regression
+author  : peach_young
+mailbox : 309704001@qq.com
+created : 2025-12-18 17:25
+modified: 
+version : v1.0.0
+useage  : regression  [proj_path] or python3 regression  [proj_path]
+"""
+import sys
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(
+      description="this script for run verifaction case",
+      epilog="the end"
+    )
+    group = parser.add_mutually_exclusive_group()
+    parser.add_argument("case_name",help="the case name you want to run.",type=str)
+    parser.add_argument("--comp",help="compile arguments.eg:--comp 'comp_opt' or --comp='comp_opt'",type=str)
+    parser.add_argument("--sim",help="simulation arguments.eg:--sim 'sim_opt' or --sim='sim_opt'",type=str)
+    group.add_argument("-d","--dump",help="dump wave without array.eg: -d or --dump",action="store_true")
+    group.add_argument("-da","--dumpall",help="dump wave with array data.eg:--da or --dumpall",action="store_true")
+    parser.add_argument("-c","--cov", help="open coverage collection.eg: -c or --cov",action="store_true")
+    parser.add_argument("-s","--seed",help="sim seed value.eg: -s seed_value or --seed=seed_value ",type=int)
+    parser.add_argument("-rt","--runtime",help="case run times.eg: -rt run_times or --runtime=run_times",type=int,default=1)
+    try:
+      args = parser.parse_args()
+      print(args)
+    except:
+      sys.exit(-1)
+
+if __name__=="__main__":
+    main()
