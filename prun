@@ -76,6 +76,9 @@ class Analysiscmd(object):
     self.result_dir = None
     self.result_file = None
     self.nowtime = None
+    self.sim_name = None
+    self.comp_log_file = None
+    self.sim_log_file = None
 
   #analysis command
   def analysis_cmd(self):
