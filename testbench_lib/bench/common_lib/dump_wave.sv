@@ -22,7 +22,7 @@ module automatic dump_wave();
     //fsdb
     if(wave_type == "fsdb") begin
       #dump_begin;
-      wave_name = "./"+wave_name+".fsdb"
+      wave_name = {"./" ,wave_name ,".fsdb"};
       $fsdbAutoSwitchDumpfile(2048, wave_name, 10, log_path);
       $fsdbDumpvarsToFile(scop_path);
       if(dump_mda == 1) begin

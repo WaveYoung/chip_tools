@@ -50,6 +50,9 @@ class Analysiscmd(object):
     self.result_dir = None
     self.result_file = "run_result.txt"
     self.nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    self.sim_name = "simv"
+    self.comp_log_file = "comp.log"
+    self.sim_log_file = "sim.log"
   
   #disctruction function
   def __del__(self):
@@ -102,7 +105,7 @@ class Analysiscmd(object):
       sys.exit(-1)
 
   # analysis sim log and write to result log file
-  def analysis_simlog(self):
+  def analysis_simlog(self ,simlog_file):
     #analysis sim.log
     pass_flag=0
     fail_flag=0
@@ -111,7 +114,7 @@ class Analysiscmd(object):
     sim_time_measure=""
     cpu_time=""
     cpu_time_measure=""
-    dir_simlog = self.result_dir + "/sim.log"
+    dir_simlog = self.result_dir + "/" + simlog_file
     if(os.path.exists(dir_simlog) == True):
       with open(dir_simlog, 'r') as f_logfile:
         sim_log_line = f_logfile.readline()
@@ -176,7 +179,6 @@ class Analysiscmd(object):
     f_mk.writelines(["comp:\n","\tvcs "])
     #read and write compile arg
     txt=""
-    sim_name = ""
     with open(self.comm_comp_file, 'r') as f_comp:
       line = f_comp.readline()
       while line:
@@ -185,10 +187,15 @@ class Analysiscmd(object):
         if res != None:
           res1 = re.fullmatch(r"^-o\s.*", line)
           if res1 != None:
-            sim_name = line.split(' ',1)[1]
+            self.sim_name = line.split(' ',1)[1]
           if not (line.isspace()):
-            txt =txt + line
+            txt = txt + line
         line = f_comp.readline()
+    #check comp log file was setted
+    if not " -l " in txt:
+      txt = txt + " -l " + self.comp_log_file
+    if not " -o " in txt:
+      txt = txt + " -o " + self.sim_name
     #coverage comp arg
     if self.coverage:
       txt = txt + " -cm line+tgl+cond+branch+fsm+assert"
@@ -202,16 +209,22 @@ class Analysiscmd(object):
       txt = txt + self.comp_opt
     f_mk.write(txt)
     #read and write sim arg
-    f_mk.writelines(["\nsim:\n","\t./"+sim_name])
-    txt = ""
+    f_mk.writelines(["\nsim:\n","\t./"+self.sim_name])
+    txt = " "
     with open(self.comm_sim_file, 'r') as f_sim:
       line = f_sim.readline()
       while line:
         line = line.replace('\n', ' ')
         res = re.fullmatch(r"^[^#\/].*", line)
         if (res != None) and (not(line.isspace())):
-          txt =txt + line
+          txt = txt + line
+          res1 = re.fullmatch(r"^-l\s.*", line)
+          if res1 != None:
+            self.sim_log_file = line.split(' ',1)[1]
         line = f_sim.readline()
+    #check sim log file was setted
+    if not " -l " in txt:
+      txt = txt + " -l " + self.sim_log_file
     # dump wave arg
     #common dump arg
     if self.wave_type_name == "fsdb":
@@ -259,7 +272,7 @@ class Analysiscmd(object):
     #excute first comp and sim
     cmd = "make all -f " + dir_makefile + " -C "+ self.result_dir
     os.system(cmd)
-    self.analysis_simlog()
+    self.analysis_simlog(self.sim_log_file)
     #excute run_times sim
     for i in range(self.run_times - 1):
       self.seed = int(time.time() + i + 1)
@@ -279,7 +292,7 @@ class Analysiscmd(object):
       f_makefile.close()
       cmd = "make sim -f "+dir_makefile+" -C "+self.result_dir
       os.system(cmd)
-      self.analysis_simlog()
+      self.analysis_simlog(self.sim_log_file)
 
   #check environment setting
   def check_environment(self):
