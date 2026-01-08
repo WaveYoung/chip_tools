@@ -80,14 +80,25 @@ text in { } please do not fix it, others you can fix it as you like.
 ## create test bench
 use build_testbench command + options as below to build project, envrionment and agent   
 ```
-build_testbench -p <ut/it/st> -n <testbench_name> [-e <environment_name>] [-a <agent_name>] [-m <regmodel_file_path>]
-options:
- -h,--h   help information.
- -p,--p   where you want to create. eg:-p ut/it/st or --p=ut/it/st
- -n,--n   testbench name set. eg:-n testbench_name --p=testbench_name
- -e,--e   environment name you want to create. eg:-e environment_name or --e=environment_name
- -a,--a   agent name you want to create. eg:-a agent_name or --a=agent_name
- -m,--m   create reg model in env. eg:-m regmodel_file_path or --m=regmodel_file_path
+usage: build_testbench [-h] -p {ut,it,st} -n NAME [-e ENV] [-a AGT] [-m MDL]
+
+this script for build testbench environment
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p {ut,it,st}, --pos {ut,it,st}
+                        where you want to create. eg:-p ut/it/st or
+                        --pos=ut/it/st.
+  -n NAME, --name NAME  testbench name set. eg:-n <testbench_name> or
+                        --name=<testbench_name>.
+  -e ENV, --env ENV     environment name you want to create. eg:-e
+                        <environment_name> or --env=<environment_name>.
+  -a AGT, --agt AGT     agent name you want to create. eg:-a <agent_name> or
+                        --agt=<agent_name>.
+  -m MDL, --mdl MDL     create reg model in env. eg:-m <regmodel_file_path> or
+                        --m=<regmodel_file_path>.
+
+the end
 ```     
 eg:     
 `build_testbench -p ut -n testbench_name -m path_to_reg_model/reg_model.sv -e env_name -a agent_name`    

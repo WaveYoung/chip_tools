@@ -17,6 +17,7 @@ import os
 import shutil
 import re
 import getopt
+import argparse
 from datetime import datetime
 
 #insert context to file 
@@ -255,8 +256,8 @@ def build_dir(build_path,reg_model):
       inst_reg_model = "rm_"+reg_model
       insert_file(file_name,"\t"+reg_model+" "+inst_reg_model+";","//register model",0)
       insert_file(file_name,"\t"+inst_reg_model+" = "+reg_model+"::type_id::create(\""+inst_reg_model+"\",this);\
-      \n\t"+inst_reg_model+".configure(null,\"test_top.DUT\");\n\t"+inst_reg_model+".build();\
-      \n\t"+inst_reg_model+".lock_model();\n\t"+inst_reg_model+".reset();\n\t//"+inst_reg_model+".set_hdl_path_root(\"test_top.DUT\");","//create regmodel and adapter",0)
+      \n\t"+inst_reg_model+".configure(null,\"tb_top.DUT\");\n\t"+inst_reg_model+".build();\
+      \n\t"+inst_reg_model+".lock_model();\n\t"+inst_reg_model+".reset();\n\t//"+inst_reg_model+".set_hdl_path_root(\"tb_top.DUT\");","//create regmodel and adapter",0)
       insert_file(file_name,"\t"+inst_reg_model+".default_map.set_sequencer(vseqr,adapter);\
       \n\t"+inst_reg_model+".default_map.set_auto_predict(1);\n\t//mon_predictor.map = "+inst_reg_model+".default_map;","//connect regmodel adapter and predictor",0)
 
@@ -342,8 +343,8 @@ def build_agent(dir_path,agt_name,env_name):
     #create agent interface
     if_name = agt_name_split + "_interface"
     build_interface(agt_path,if_name)
-    #define interface in test_top
-    file_name = dir_path + "/../test_top.sv"
+    #define interface in tb_top
+    file_name = dir_path + "/../tb_top.sv"
     insert_file(file_name,"\t"+if_name+" "+agt_name_split+"_if(clk, rst_n);","//interface define",0)
     insert_file(agt_pkg_file,"`include \""+if_name+".sv\"","//interface",0)
     #create transaction
@@ -439,8 +440,8 @@ def build_agent(dir_path,agt_name,env_name):
     insert_file(file_name,"\t"+i_agt_name+" = "+agt_name+"::type_id::create(\""+i_agt_name+"\", this);\
     \n\t"+o_agt_name+" = "+agt_name+"::type_id::create(\""+o_agt_name+"\", this);\
     \n\t"+i_agt_name+".is_active=UVM_ACTIVE;\n\t"+o_agt_name+".is_active=UVM_PASSIVE;","super.build_phase(phase);",0)
-    #set interface in test_top
-    file_name = dir_path + "/../test_top.sv"
+    #set interface in tb_top
+    file_name = dir_path + "/../tb_top.sv"
     env_name_split = env_name.split('_')[0]
     env_inst_name = env_name_split+"_ev"
     insert_file(file_name,"\t\tuvm_config_db#(virtual "+if_name+")::set(null, \"uvm_test_top."+env_inst_name+".*\", \""+agt_name_split+"_vif\", "+agt_name_split+"_if);","//config virtual interface",0)
@@ -562,18 +563,6 @@ def build_env(dir_path,env_name):
     insert_file(file_name,"\t"+env_name+" "+inst_name+";","//statement children class",0)
     insert_file(file_name,"\t"+inst_name+" = "+env_name+"::type_id::create(\""+inst_name+"\", this);","//create env",0)
     
-# print help infor
-def print_usage():
-  print("usage:")
-  print(" build_testbench -p <ut/it/st> -n <testbench_name> [-e <environment_name>] [-a <agent_name>] [-m <regmodel_file_path>]")
-  print("options:")
-  print(" -h,--h   help information.")
-  print(" -p,--p   where you want to create. eg:-p ut/it/st or --p=ut/it/st")
-  print(" -n,--n   testbench name set. eg:-n testbench_name --p=testbench_name")
-  print(" -e,--e   environment name you want to create. eg:-e environment_name or --e=environment_name")
-  print(" -a,--a   agent name you want to create. eg:-a agent_name or --a=agent_name")
-  print(" -m,--m   create reg model in env. eg:-m regmodel_file_path or --m=regmodel_file_path")
-
 #build script main entrance
 def build():
   #check project setting
@@ -582,69 +571,27 @@ def build():
   if( not proj_path or not proj_name):
     print("please source sourceme first in project path!")
     sys.exit(-1)
-  cmd = ' '.join(sys.argv)
-  testbench_level=""
-  testbench_name=""
-  env_name = ""
-  agt_name = ""
-  regmodel_name = ""
-  # check command error
-  res = re.fullmatch(r"^(.*build_testbench){1}(\s+[-]{1,2}[a-zA-Z]+((\s+[.\a-zA-Z0-9_-]+)|(={1}[.\a-zA-Z0-9_-]+))?)+", cmd)
-  if res == None:
-    print("Error: command ["+cmd+"] has no argument!")
-    print_usage()
-    sys.exit(-1)
   #analysis options
-  cmd_lst = cmd.split(' ')
+  parser = argparse.ArgumentParser(description="this script for build testbench environment",epilog="the end")
+  parser.add_argument("-p","--pos",help="where you want to create. eg:-p ut/it/st or --pos=ut/it/st.",type=str,choices=['ut','it','st'],required=True)
+  parser.add_argument("-n","--name",help="testbench name set. eg:-n <testbench_name> or --name=<testbench_name>.",type=str,required=True)
+  parser.add_argument("-e","--env",help="environment name you want to create. eg:-e <environment_name> or --env=<environment_name>.",type=str)
+  parser.add_argument("-a","--agt",help="agent name you want to create. eg:-a <agent_name> or --agt=<agent_name>.",type=str)
+  parser.add_argument("-m","--mdl",help="create reg model in env. eg:-m <regmodel_file_path> or --m=<regmodel_file_path>.",type=str)
   try:
-    opts, args = getopt.getopt(cmd_lst[1:], "hp:n:e:a:m:",["h", "p=", "n=", "e=", "a=", "m="])
-    for opt, arg in opts:
-      if opt in ("-h", "--h"):
-        print_usage()
-        sys.exit(-1)
-      elif opt in ("-p", "--p"):
-        testbench_level = arg
-      elif opt in ("-n", "--n"):
-        testbench_name = arg
-      elif opt in ("-e", "--e"):
-        env_name = arg
-      elif opt in ("-a", "--a"):
-        agt_name = arg
-      elif opt in ("-m", "--m"):
-        regmodel_name = arg
-  except getopt.GetoptError:
-    print("Error: command ["+cmd+"] option fault!")
-    print_usage()
+    args = parser.parse_args()
+    # print(args)
+    testbench_level = args.pos
+    testbench_name = args.name
+    env_name = args.env
+    agt_name = args.agt
+    regmodel_name = args.mdl
+  except:
     sys.exit(-1)
-  #check argument
-  if(testbench_level == "" or testbench_name == "" or (agt_name != "" and  env_name == "")):
-    print("Error: command ["+cmd+"] option value fault!")
-    print_usage()
-    sys.exit(-1)
-  #check name formate is valiable
-  err_name = ''
-  if(testbench_level != "ut" and testbench_level != "it" and testbench_level != "st"):
-    err_name += testbench_level + ' '
-  if(testbench_name != ''):
-    res_name = re.fullmatch(r"^[a-zA-Z0-9_-]+$", testbench_name)
-    if(res_name == None):
-        err_name += testbench_name + ' '
-  if(env_name != ''):
-    res_name = re.fullmatch(r"^[a-zA-Z0-9_-]+$", env_name)
-    if(res_name == None):
-        err_name += env_name + ' '
-  if(agt_name != ''):
-    res_name = re.fullmatch(r"^[a-zA-Z0-9_-]+$", agt_name)
-    if(res_name == None):
-        err_name += agt_name + ' '
-  if(regmodel_name != ''):
-    res_name = re.fullmatch(r"^[.a-zA-Z0-9\/_-]+.sv$", regmodel_name)
-    if(res_name == None):
-        err_name += regmodel_name
-  if(err_name != ''):
-    print("Error: command ["+cmd+"] option value '"+ err_name+"' fault!")
-    print_usage()
-    sys.exit(-1)
+  # set env before agt and mdl
+  if agt_name != None and env_name == None:
+    parser.error("-e must be set before -a")
+  if regmodel_name == None: regmodel_name = ""
   #get testbench directory
   if   testbench_level == "ut" : testbench_path=os.getenv('UT_PATH')
   elif testbench_level == "it" : testbench_path=os.getenv('IT_PATH')
@@ -653,13 +600,13 @@ def build():
   #create testbench
   build_dir(testbench_path,regmodel_name)
   #create envrionment
-  if(env_name != ""):
+  if(env_name != None):
     if("_env" not in env_name):
       env_name = env_name + "_env"
     bench_path = testbench_path + "/bench"
     build_env(bench_path,env_name)
   #create agent
-  if(agt_name != ""):
+  if(agt_name != None):
     if("_agent" not in agt_name):
       agt_name = agt_name + "_agent"
     env_path = testbench_path + "/bench/" + env_name

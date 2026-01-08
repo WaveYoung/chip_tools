@@ -1,12 +1,12 @@
 `ifndef TEST_TOP_SV
 `define TEST_TOP_SV
 
-module automatic test_top;
+module automatic tb_top;
   
   //define module only time scale
   // timeunit 1ns;
   // timeprecision 100ps; //0.1ns
-  // $printtimescale(test_top);  //print time scale info
+  // $printtimescale(tb_top);  //print time scale info
 
   //clock define
   logic clk, nclk;
@@ -68,6 +68,6 @@ module automatic test_top;
   //   return func_name;
   // endfunction:func_name
 
-endmodule:test_top
+endmodule:tb_top
 
 `endif

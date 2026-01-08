@@ -13,6 +13,6 @@
 `include "virtual_sequence.sv"
 `include "base_test.sv"
 `include "assert/examp_assert.sv"
-`include "test_top.sv"
+`include "tb_top.sv"
 
 `endif
