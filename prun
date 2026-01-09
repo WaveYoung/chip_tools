@@ -275,6 +275,7 @@ class Analysiscmd(object):
     #excute first comp and sim
     cmd = "make all -f " + dir_makefile + " -C "+ self.result_dir
     os.system(cmd)
+    self.sim_log_file = self.sim_log_file.strip()
     self.analysis_simlog(self.sim_log_file)
     #excute run_times sim
     for i in range(self.run_times - 1):

@@ -11,6 +11,8 @@
 //include files
 `include "virtual_sequencer.sv"
 `include "virtual_sequence.sv"
+`include "coverage/cov_if.sv"
+`include "coverage/cov_top.sv"
 `include "base_test.sv"
 `include "assert/examp_assert.sv"
 `include "tb_top.sv"

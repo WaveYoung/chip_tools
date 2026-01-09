@@ -11,6 +11,9 @@ class base_test extends uvm_test;
 
   //statement children class
 
+  //coverage component
+  cov_top cov;
+
   //statement virutal sequencer
   virtual_sequencer vseqr;
 
@@ -51,6 +54,9 @@ function void base_test::build_phase(uvm_phase phase);
 
   //create virtual sequencer
   vseqr = virtual_sequencer::type_id::create("vseqr",this);
+
+  //create coverage component
+  cov = cov_top::type_id::create("cov",this);
 
   //create regmodel and adapter
 

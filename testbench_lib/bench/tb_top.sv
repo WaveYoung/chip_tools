@@ -27,6 +27,7 @@ module automatic tb_top;
   end
 
   //interface define
+  cov_if cov_if_bind(clk,rst_n);
 
   //DUT instance
   // dut DUT(.clk(clk),
@@ -42,8 +43,12 @@ module automatic tb_top;
     run_test();
   end
 
+  //coverage connect
+  // assign cov_if_bind.sample_sgn = DUT.sgn;
+
   initial begin
     //config virtual interface
+    uvm_config_db#(virtual cov_if)::set(null,"uvm_test_top.cov","cov_if",cov_if_bind);
   end
 
   //dump wava
