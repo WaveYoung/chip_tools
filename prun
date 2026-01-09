@@ -179,7 +179,7 @@ class Analysiscmd(object):
     # write makefile option
     f_mk.writelines(['all: comp sim\n'])
     # write vcs option
-    f_mk.writelines(["comp:\n","\tvcs "])
+    f_mk.writelines(["\ncomp:\n","\tvcs \\\n"])
     #read and write compile arg
     txt=""
     with open(self.comm_comp_file, 'r') as f_comp:
@@ -192,75 +192,74 @@ class Analysiscmd(object):
           if res1 != None:
             self.sim_name = line.split(' ',1)[1]
           if not (line.isspace()):
-            txt = txt + line
+            txt = txt + "\t\t" + line + "\\\n"
         line = f_comp.readline()
     #check comp log file was setted
-    if not " -l " in txt:
-      txt = txt + " -l " + self.comp_log_file
-    if not " -o " in txt:
-      txt = txt + " -o " + self.sim_name
+    if not "-l " in txt:
+      txt = txt + "\t\t-l " + self.comp_log_file + " \\\n"
+    if not "-o " in txt:
+      txt = txt + "\t\t-o " + self.sim_name + " \\\n"
     #coverage comp arg
     if self.coverage:
-      txt = txt + " -cm line+tgl+cond+branch+fsm+assert"
-      txt = txt + " -cm_dir " + self.result_dir + "/coverage/" + cov_fname
-      txt = txt + " -cm_name " + self.test_case_name
-      txt = txt + " -cm_hier 0"
+      txt = txt + "\t\t-cm line+tgl+cond+branch+fsm+assert \\\n"
+      txt = txt + "\t\t-cm_dir " + self.result_dir + "/coverage/" + cov_fname + " \\\n"
+      txt = txt + "\t\t-cm_name " + self.test_case_name + " \\\n"
+      txt = txt + "\t\t-cm_hier 0 \\\n"
     # rtl and verfi filelist arg
-    txt = txt + " -f " + self.rtl_file_list + " -f " + self.vrf_file_list + " "
+    txt = txt + "\t\t-f " + self.rtl_file_list + " \\\n\t\t-f " + self.vrf_file_list + " \\\n"
     # case comp option args
     if self.comp_opt != None:
-      txt = txt + self.comp_opt
+      txt = txt + "\t\t" + self.comp_opt + " \\\n"
     f_mk.write(txt)
     #read and write sim arg
-    f_mk.writelines(["\nsim:\n","\t./"+self.sim_name])
-    txt = " "
+    f_mk.writelines(["\nsim:\n","\t./"+self.sim_name+" \\\n"])
+    txt = ""
     with open(self.comm_sim_file, 'r') as f_sim:
       line = f_sim.readline()
       while line:
         line = line.replace('\n', ' ')
         res = re.fullmatch(r"^[^#\/].*", line)
         if (res != None) and (not(line.isspace())):
-          txt = txt + line
+          txt = txt + "\t\t" + line + "\\\n"
           res1 = re.fullmatch(r"^-l\s.*", line)
           if res1 != None:
             self.sim_log_file = line.split(' ',1)[1]
         line = f_sim.readline()
     #check sim log file was setted
-    if not " -l " in txt:
-      txt = txt + " -l " + self.sim_log_file
+    if not "-l " in txt:
+      txt = txt + "\t\t-l " + self.sim_log_file + " \\\n"
     # dump wave arg
     #common dump arg
     if self.wave_type_name == "fsdb":
       if self.dump_wave or self.dump_with_mda: 
         #copy dump_scope file to result dir
         shutil.copy(self.dump_scope_file ,self.result_dir+"/")
-        txt = txt + " +fsdb+autoflush +fsdb+filter_file="+ self.dump_filter_file +" +wave=" + self.wave_type_name
+        txt = txt + "\t\t+fsdb+autoflush +fsdb+filter_file="+ self.dump_filter_file +" \\\n\t\t+wave=" + self.wave_type_name + "\\\n"
       #dump with mda args
       if self.dump_with_mda:
-        txt = txt + " +fsdb+mda +fsdb+filter=mda,struct +mda=1"
+        txt = txt + "\t\t+fsdb+mda +fsdb+filter=mda,struct +mda=1 \\\n"
       #dump without mda args
       if self.dump_wave:
-        txt = txt + " +fsdb+nomda"
+        txt = txt + "\t\t+fsdb+nomda \\\n"
     if self.wave_type_name == "vcd":
       if self.dump_wave or self.dump_with_mda: 
-         txt = txt +" +wave=" + self.wave_type_name
-    txt = txt + " "
+         txt = txt +"\t\t+wave=" + self.wave_type_name + " \\\n"
     if self.sim_opt != None:
       if("+UVM_TESTNAME=" in self.sim_opt):
-        txt = txt + self.sim_opt
+        txt = txt + "\t\t" + self.sim_opt + " \\\n"
       else:
-        txt = txt + self.sim_opt + " +UVM_TESTNAME=" + self.test_case_name
+        txt = txt + "\t\t" + self.sim_opt + " \\\n\t\t+UVM_TESTNAME=" + self.test_case_name + " \\\n"
     else:
-      txt = txt + " +UVM_TESTNAME=" + self.test_case_name
+      txt = txt + "\t\t+UVM_TESTNAME=" + self.test_case_name + " \\\n"
     # coverage sim args
     if self.coverage:
-      txt = txt + " -cm line+tgl+cond+branch+fsm+assert"
-      txt = txt + " -cm_dir " + self.result_dir + "/coverage/" + cov_fname
+      txt = txt + "\t\t-cm line+tgl+cond+branch+fsm+assert \\\n"
+      txt = txt + "\t\t-cm_dir " + self.result_dir + "/coverage/" + cov_fname + " \\\n"
     # seed arg
-    txt = txt + " +ntb_random_seed=" + self.seed + "\n"
+    txt = txt + "\t\t+ntb_random_seed=" + self.seed + " \\\n"
     f_mk.write(txt)
     # write clean option
-    f_mk.writelines(["clean:\n","\trm -rf DVEfiles novas.* verdiLog *.log csrc simv* *.key vc_hdrs.h *.vpd *.fsdb *.vf"])
+    f_mk.writelines(["\nclean:\n","\trm -rf DVEfiles novas.* verdiLog *.log csrc simv* *.key vc_hdrs.h *.vpd *.fsdb *.vf\n"])
     f_mk.close()
 
   #set random_seed
