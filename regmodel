@@ -1,15 +1,22 @@
 #!/usr/bin/python3
 #-*-coding:UTF-8-*-
 
-############################################################################
-#  useage python command:regmodel.py [option] or python3 build.py [option] #
-############################################################################
+""""
+filename: regmodel
+author  : peach_young
+mailbox : 309704001@qq.com
+created : 2026-2-28 18:31
+modified: 
+version : v1.0.0
+useage  : regmodel [option] or python3 build [option]
+"""
 
 import re
 import csv
 import os
 import sys
 import getopt
+import argparse
 from datetime import datetime
 
 #import RgmItem
@@ -200,17 +207,6 @@ endclass:regfile*/\n\n')
     def genCFile(self):
         pass
 
-#generate uvm register model from csv file
-def GenUVMRgm():
-  file_list = analy_cmd()
-  input_file = file_list[0]
-  output_file = file_list[1]
-  print('%s \ngen reg model started \n%s\n' % (40*'*', 40*'*'))
-  gen = GenRgm()
-  gen.readRgmFile(input_file)
-  gen.genUVMFile(output_file)
-  print('%s \ngen reg model PASSED \n%s\n' % (40*'*', 40*'*'))
-
 # print help infor
 def print_usage():
   print("usage:")
@@ -267,6 +263,17 @@ def analy_cmd():
     print_usage()
     sys.exit(-1)
   return [input_file,output_file]
+
+#generate uvm register model from csv file
+def GenUVMRgm():
+  file_list = analy_cmd()
+  input_file = file_list[0]
+  output_file = file_list[1]
+  print('%s \ngen reg model started \n%s\n' % (40*'*', 40*'*'))
+  gen = GenRgm()
+  gen.readRgmFile(input_file)
+  gen.genUVMFile(output_file)
+  print('%s \ngen reg model PASSED \n%s\n' % (40*'*', 40*'*'))
 
 if __name__ == '__main__' :
   GenUVMRgm()

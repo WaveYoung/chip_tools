@@ -15,8 +15,6 @@ useage  : build_testbench [option] or python3 build_testbench [option]
 import sys
 import os
 import shutil
-import re
-import getopt
 import argparse
 from datetime import datetime
 
