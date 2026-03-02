@@ -108,15 +108,26 @@ notice: if set agent_name or reg_model, env_name must be set first.
 # 4  create reg model from csv file
   use reg command + options as below to build regmodel from csv file.  
    ```
-   usage:
-    regmodel -i <regmodel_input_csv_file> -o <regmodle_output_sv_file>
-  options:
-    -h,--h   help information.
-    -i,--i   which regmodel csv file you want use. eg:-i <regmodel_input_csv_file> or --i=<regmodel_input_csv_file>
-    -o,--o   ouput system_verilog regmodle file name. eg:-o <regmodle_output_sv_file> or --o=<regmodle_output_sv_file>
+  usage: regmodel [-h] -i INPUTF [-o OUTPUTF]
+
+  this script for regmodel generate
+
+  optional arguments:
+    -h, --help            show this help message and exit
+    -i INPUTF, --inputf INPUTF
+                          which regmodel csv file you want use. eg:-i
+                          <regmodel_input_csv_file_path> or
+                          --inputf=<regmodel_input_csv_file_path>.
+    -o OUTPUTF, --outputf OUTPUTF
+                          ouput system_verilog regmodle file name(default
+                          currentdir/reg_mod.sv). eg:-o
+                          <regmodle_output_sv_file_path> or
+                          --outputf=<regmodle_output_sv_file_path>.
+
+  the end
    ```     
    eg:     
-   `regmodel -i reg.csv -o example_reg.sv`    
+   `regmodel -i xxx/reg.csv -o xxx/example_reg.sv`    
 
 # 5 run case or caselist
    use prun command + options as below to run case or caselist    

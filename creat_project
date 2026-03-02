@@ -89,12 +89,14 @@ export PATH=${PATH}:${CHIP_TOOLS}
 #    ALIAS PARAMETER         #
 ##############################
 alias g="gvim"
+alias vd="verdi -ssf"
 alias lmg_synopsys="lmgrd -c ${SCL_HOME}/admin/license/Synopsys.dat"
 
 ##############################
 #    DSIPLAY INFORMATION     #
 ##############################
-echo "g: gvim"
+echo "g:  gvim"
+echo "vd: verdi -ssf"
 echo "lmg_synopsys: active the synopsys when machine reboot"
 
 """

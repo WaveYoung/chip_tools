@@ -30,13 +30,23 @@ module automatic tb_top;
   cov_if cov_if_bind(clk,rst_n);
 
   //DUT instance
-  // dut DUT(.clk(clk),
+  `ifndef POST_SIM
+  // dut_name DUT(.clk(clk),
   //         .rst_n(rst_n),
   //         .rxd(input_if.data),
   //         .rx_dv(input_if.valid),
   //         .txd(output_if.data),
   //         .tx_en(output_if.valid)
   //        );
+  `else
+  // netlist_dut_name DUT(.clk(clk),
+  //         .rst_n(rst_n),
+  //         .rxd(input_if.data),
+  //         .rx_dv(input_if.valid),
+  //         .txd(output_if.data),
+  //         .tx_en(output_if.valid)
+  //        );
+  `endif
 
   //run into testcase
   initial begin

@@ -5,6 +5,9 @@ class virtual_sequence extends uvm_sequence;
 	//class id
 	string tid = get_name();
 
+	//uvm version
+	real uvm_version = 1.1;
+
 	//filed autumation
 	`uvm_object_utils_begin(virtual_sequence)
 	`uvm_object_utils_end
@@ -17,6 +20,8 @@ class virtual_sequence extends uvm_sequence;
 	//function new
 	function new(string name = "virtual_sequence");
 		super.new(name);
+		$value$plusargs("UVM_VERSION=%0f",uvm_version);
+		`uvm_info(get_full_name(), $sformatf("UVM_VERSION=%0f", uvm_version), UVM_NONE)
 	endfunction:new
 
 	extern virtual task pre_start();
@@ -25,15 +30,19 @@ class virtual_sequence extends uvm_sequence;
 endclass:virtual_sequence
 
 task virtual_sequence::pre_start();
-	if(starting_phase == null)
-		starting_phase = get_starting_phase();//for uvm-1.2, uvm-1.1 cancel this line  
+	if(uvm_version==1.2) begin
+		if(starting_phase == null)
+			starting_phase = get_starting_phase();//for uvm-1.2, uvm-1.1 do not use this  
+	end
 	if(starting_phase != null)
 		starting_phase.raise_objection(this);//or starting_phase.raise_objection(get_sequencer());
 endtask:pre_start
 
 task virtual_sequence::post_start();
-	if(starting_phase == null)
-		starting_phase = get_starting_phase();//for uvm-1.2, uvm-1.1 cancel this line  
+	if(uvm_version==1.2) begin
+		if(starting_phase == null)
+			starting_phase = get_starting_phase();//for uvm-1.2, uvm-1.1 do not use this  
+	end
 	if(starting_phase != null)
 		starting_phase.drop_objection(this);//or starting_phase.drop_objection(get_sequencer());
 endtask:post_start
