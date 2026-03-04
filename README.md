@@ -97,7 +97,7 @@ optional arguments:
   -a AGT, --agt AGT     agent name you want to create. eg:-a <agent_name> or
                         --agt=<agent_name>.
   -m MDL, --mdl MDL     create reg model in env. eg:-m <regmodel_file_path> or
-                        --m=<regmodel_file_path>.
+                        ---mdl=<regmodel_file_path> note:top modle name is reg_model.sv.
 
 the end
 ```     

@@ -14,6 +14,7 @@ useage  : build_testbench [option] or python3 build_testbench [option]
 #import package
 import sys
 import os
+import re
 import shutil
 import argparse
 from datetime import datetime
@@ -192,13 +193,11 @@ def add_header_to_sv_file(dir):
 
 #build testbench directory structure
 #build_path   : where to create testbench
-#reg_model    : register model file 
-def build_dir(build_path,reg_model):
+def build_dir(build_path):
   path_bench = build_path+"/bench"
   path_config = build_path+"/config"
   path_testcase = build_path+"/testcase"
   path_sourceme = build_path+"/sourceme"
-  path_reg = path_bench+"/reg_model"
   #create testbench dir
   if not os.path.exists(build_path):
     os.makedirs(build_path)
@@ -217,47 +216,6 @@ def build_dir(build_path,reg_model):
       creat_sourceme(build_path)
     #add file header to all sv file
     add_header_to_sv_file(build_path)
-  if (not os.path.exists(path_reg)) and (reg_model != ""):
-    os.makedirs(path_reg)
-    # create reg adapter and add to bench_pkg
-    adpt_name =  "reg_adapter"
-    build_class(path_reg,adpt_name,"uvm_reg_adapter","","object")
-    build_func_task(path_reg,adpt_name,"reg2bus","const ref uvm_reg_bus_op rw","function","uvm_sequence_item")
-    file_name = path_reg + "/"+adpt_name+".sv"
-    insert_file(file_name,"//rw.add rw.data rw.kind(UVM_READ,UVM_WRITE) rw.nbits rw.byte_en rw.status(UVM_IS_OK,UVM_IS_X,UVM_NOT_OK)","endfunction:reg2bus",1)
-    build_func_task(path_reg,adpt_name,"bus2reg","uvm_sequence_item bus_item, ref uvm_reg_bus_op rw","function")
-    insert_file(file_name,"//rw.add rw.data rw.kind(UVM_READ,UVM_WRITE) rw.nbits rw.byte_en rw.status(UVM_IS_OK,UVM_IS_X,UVM_NOT_OK)","endfunction:bus2reg",1)
-    file_name = path_bench + "/bench_pkg.sv"
-    insert_file(file_name,"`include \"reg_model/"+adpt_name+".sv\"","//include files",0)
-    #instance adapter
-    file_name = path_bench +"/base_test.sv"
-    insert_file(file_name,"\t"+adpt_name+" adapter;\n\t"+adpt_name+" mon_adapter;\n\t//uvm_reg_predictor#(bus_transaction) mon_predictor;","//register model",0)
-    insert_file(file_name,"\tadapter = new(\"adapter\");\n\tmon_adapter = new(\"mon_adapter\");\n\t//mon_predictor = new(\"mon_predictor\",this)","//create regmodel and adapter",0)
-    insert_file(file_name,"\t//mon_predictor.adapter = mon_adapter;\n\t//env.bus_agt.ap.connect(mon_predictor.bus_in);","//connect regmodel adapter and predictor",0)
-  if reg_model != "":
-    if(os.path.exists(reg_model)):
-      shutil.copy(reg_model,path_reg)
-    else:
-      print("reg model file :"+reg_model+" do not exists!")
-      sys.exit(-1)
-    #include reg model pakage file
-    file_name = path_bench +"/bench_pkg.sv"
-    reg_model = reg_model.split('/')[-1]
-    flag_exsis = False
-    with open(file_name,'r') as file:
-      if(reg_model in file.read()):
-        flag_exsis = True
-    if(flag_exsis == False):
-      insert_file(file_name,"`include \"reg_model/"+ reg_model +"\"","//include files",0)
-      file_name = path_bench +"/base_test.sv"
-      reg_model = reg_model.split('.')[0]
-      inst_reg_model = "rm_"+reg_model
-      insert_file(file_name,"\t"+reg_model+" "+inst_reg_model+";","//register model",0)
-      insert_file(file_name,"\t"+inst_reg_model+" = "+reg_model+"::type_id::create(\""+inst_reg_model+"\",this);\
-      \n\t"+inst_reg_model+".configure(null,\"tb_top.DUT\");\n\t"+inst_reg_model+".build();\
-      \n\t"+inst_reg_model+".lock_model();\n\t"+inst_reg_model+".reset();\n\t//"+inst_reg_model+".set_hdl_path_root(\"tb_top.DUT\");","//create regmodel and adapter",0)
-      insert_file(file_name,"\t"+inst_reg_model+".default_map.set_sequencer(vseqr,adapter);\
-      \n\t"+inst_reg_model+".default_map.set_auto_predict(1);\n\t//mon_predictor.map = "+inst_reg_model+".default_map;","//connect regmodel adapter and predictor",0)
 
 #build package file
 #file_dir   : where to create pakgefile
@@ -500,6 +458,109 @@ def build_agent(dir_path,agt_name,env_name):
     \n\t"+o_agt_name+".ap.connect("+asfifo_name+".analysis_export);\
     \n\tscb."+act_port_name+".connect("+asfifo_name+".blocking_get_export);","super.connect_phase(phase);",0)
 
+#build regmodel file struct
+#dir_path   : where to store reg model 
+#regmodel_name   : reg modle file name
+def build_regmod(dir_path,regmod_file):
+  #check reg mode dir is exist
+  if (not os.path.exists(dir_path)):
+    os.makedirs(dir_path)
+    #include dir in vrf.f
+    file_name = dir_path + "/../../config/filelist/vrf.f"
+    insert_file(file_name,"+incdir+${BENCH_PATH}/reg_model","+incdir+${BENCH_PATH}",0)
+    #create reg_modle_pkg.sv
+    build_pkg_file(dir_path,"reg_model_pkg")
+    #add to bench pkg file
+    file_name = dir_path + "/../bench_pkg.sv"
+    insert_file(file_name,"`include \"reg_model/reg_model_pkg.sv\"","//include reg model",0)
+    insert_file(file_name,"import reg_model_pkg::*;","//import packages",0)
+  #copy reg mode file to dir path
+  try:
+    shutil.copy2(regmod_file,dir_path)
+    #add reg model to package file
+    file_name = dir_path + "/reg_model_pkg.sv"
+    reg_filename = regmod_file.split('/')[-1]
+    with open(file_name,'r',encoding='utf-8') as f:
+      content = f.read()
+    pattern = r'\b'+re.escape(reg_filename)+r'\b'
+    if not bool(re.search(pattern,content)):
+      insert_file(file_name,"`include \""+ reg_filename +"\"","//import packages",0)
+  except:
+    print("regmod file:"+regmod_file+" copy failed!")
+    sys.exit(-1)
+  # create top reg_modle
+  reg_model_top = "reg_model"
+  file_name = dir_path + "/" + reg_model_top + ".sv"
+  if (not os.path.exists(file_name)):
+    build_class(dir_path,reg_model_top,"uvm_reg_block","","object")
+    build_func_task(dir_path,reg_model_top,"build","","function","void")
+    insert_file(file_name,"\tuvm_reg_map map;\n","//filed autumation",1)
+    insert_file(file_name,"\tmap = create_map(\"map\", 'h0, 4, UVM_LITTLE_ENDIAN);//UVM_BIG_ENDIAN\n","endfunction:build",1)
+    #add to reg model package
+    file_name = dir_path + "/reg_model_pkg.sv"
+    insert_file(file_name,"`include \""+ reg_model_top +".sv\"","endpackage:reg_model_pkg",1)
+  #add current reg block to reg model top
+  if reg_filename != reg_model_top+".sv":
+    file_name = dir_path + "/" + reg_model_top + ".sv"
+    with open(file_name,'r',encoding='utf-8') as f:
+      content = f.read()
+    reg_model = reg_filename.split('.')[0]
+    pattern = r'\b'+re.escape(reg_model)+r'\b'
+    if not bool(re.search(pattern,content)):
+      #instance reg block in reg model top
+      sub_name = "sub_"+reg_model
+      insert_file(file_name,"\trand "+reg_model+" "+sub_name+";\n","//filed autumation",1)
+      insert_file(file_name,"\t"+sub_name+" = "+reg_model+"::type_id::create(\""+sub_name+"\");\n\t"+sub_name+".configure(this);\n\t"+sub_name+".build();\n\t"+sub_name+".lock_model();\n\tmap.add_submap("+sub_name+".map,32'h0);","endfunction:build",1)
+  # add reg model top to test_base
+  file_name = dir_path +"/../base_test.sv"
+  with open(file_name,'r',encoding='utf-8') as f:
+      content = f.read()
+  pattern = r'\b'+re.escape("reg_model")+r'\b'
+  if not bool(re.search(pattern,content)):
+    reg_model = "reg_model"
+    inst_reg_model = "rgm"
+    insert_file(file_name,"\t"+reg_model+" "+inst_reg_model+";","//register model",0)
+    insert_file(file_name,"\t"+inst_reg_model+" = "+reg_model+"::type_id::create(\""+inst_reg_model+"\",this);\
+    \n\t"+inst_reg_model+".configure(null,\"tb_top.DUT\");\n\t"+inst_reg_model+".build();\
+    \n\t"+inst_reg_model+".lock_model();\n\t"+inst_reg_model+".reset();\n\t//"+inst_reg_model+".set_hdl_path_root(\"tb_top.DUT\");","//create regmodel and adapter",0)
+    insert_file(file_name,"\t//"+inst_reg_model+".map.set_sequencer(bus_env.sqr,adapter);\
+    \n\t"+inst_reg_model+".map.set_auto_predict(1);","//connect regmodel adapter and predictor",0)
+  # create reg adapter and add to bench_pkg
+  adpt_name =  "reg_adapter"
+  inst_reg_model = "rgm"
+  file_name = dir_path + "/" + adpt_name + ".sv"
+  if (not os.path.exists(file_name)):
+    build_class(dir_path,adpt_name,"uvm_reg_adapter","","object")
+    build_func_task(dir_path,adpt_name,"reg2bus","const ref uvm_reg_bus_op rw","function","uvm_sequence_item")
+    insert_file(file_name,"\t//bus_transaction tr;\n\t//tr=new(\"tr\");\n\t//tr.addr=rw.addr;\n\t//tr.bus_op=(rw.kind==UVM_READ)?BUS_RD:BUS_WR;//(UVM_READ UVM_WRITE)\n\t//if(tr.bus_op==BUS_WR)\n\t\t//tr.wr_data=rw.data;\n\t//rw.nbits rw.byte_en rw.status(UVM_IS_OK,UVM_IS_X,UVM_NOT_OK)\n\t//return tr;","endfunction:reg2bus",1)
+    build_func_task(dir_path,adpt_name,"bus2reg","uvm_sequence_item bus_item, ref uvm_reg_bus_op rw","function")
+    insert_file(file_name,"\t//bus_transaction tr;\n\t//$cast(tr,bus_item);\n\t//rw.kind=(tr.bus_op==BUS_RD)?UVM_READ:UVM_WRITE;\n\t//rw.addr=tr.addr;\n\t//rw.byte_en='h3;\n\t//rw.data=(tr.bus_op==BUS_RD)?tr.rd_data:tr.wr_data;\n\t//rw.status=UVM_IS_OK;\n\t//rw.nbits rw.status(UVM_IS_OK,UVM_IS_X,UVM_NOT_OK)","endfunction:bus2reg",1)
+    #add to reg model package
+    file_name = dir_path + "/reg_model_pkg.sv"
+    insert_file(file_name,"`include \""+ adpt_name +".sv\"","//import packages",0)
+    #instance adapter reg model in base_test
+    file_name = dir_path +"/../base_test.sv"
+    insert_file(file_name,"\t"+adpt_name+" adapter;\n\t"+adpt_name+" mon_adapter;\n\t//uvm_reg_predictor#(bus_transaction) mon_predictor;","//register model",0)
+    insert_file(file_name,"\tadapter = new(\"adapter\");\n\tmon_adapter = new(\"mon_adapter\");","//create regmodel and adapter",0)
+    insert_file(file_name,"\t//mon_predictor.map="+inst_reg_model+".map\n\t//mon_predictor.adapter = mon_adapter;\n\t//env.bus_agt.ap.connect(mon_predictor.bus_in);","//connect regmodel adapter and predictor",0)
+  #define pointer in virtual sequencer
+  reg_model = "reg_model"
+  file_name = dir_path + "/../virtual_sequencer.sv"
+  with open(file_name,'r',encoding='utf-8') as f:
+      content = f.read()
+  pattern = r'\b'+re.escape("reg_model")+r'\b'
+  if not bool(re.search(pattern,content)):
+    insert_file(file_name,"\t"+reg_model+" p_rgm;","//regmodel pointer",0)
+  #define reg model in virtual sequence
+  inst_reg_model = "rgm"
+  file_name = dir_path + "/../virtual_sequence.sv"
+  with open(file_name,'r',encoding='utf-8') as f:
+      content = f.read()
+  pattern = r'\b'+re.escape("p_sequencer.p_rgm")+r'\b'
+  if not bool(re.search(pattern,content)):
+    insert_file(file_name,"\t//uvm_status_e status;\n\t//uvm_reg_data_t value;\n\t//p_sequencer.p_rgm.reg_name.read/write(status,value,UVM_FRONTDOOR/UVM_BACKDOOR);","task virtual_sequence::body();",0)
+    insert_file(file_name,"\t//p_sequencer.p_rgm = uvm_test_top."+inst_reg_model+";","task virtual_sequence::body();",0)
+
 #build testbench environment
 #env_path : whrer to create env path
 #env_name : env directory name
@@ -575,7 +636,7 @@ def build():
   parser.add_argument("-n","--name",help="testbench name set. eg:-n <testbench_name> or --name=<testbench_name>.",type=str,required=True)
   parser.add_argument("-e","--env",help="environment name you want to create. eg:-e <environment_name> or --env=<environment_name>.",type=str)
   parser.add_argument("-a","--agt",help="agent name you want to create. eg:-a <agent_name> or --agt=<agent_name>.",type=str)
-  parser.add_argument("-m","--mdl",help="create reg model in env. eg:-m <regmodel_file_path> or --m=<regmodel_file_path>.",type=str)
+  parser.add_argument("-m","--mdl",help="create reg model in env. eg:-m <regmodel_file_path> or --mdl=<regmodel_file_path> note:top modle name is reg_model.sv.",type=str)
   try:
     args = parser.parse_args()
     # print(args)
@@ -586,17 +647,22 @@ def build():
     regmodel_name = args.mdl
   except:
     sys.exit(-1)
-  # set env before agt and mdl
+  # set env before agt
   if agt_name != None and env_name == None:
     parser.error("-e must be set before -a")
-  if regmodel_name == None: regmodel_name = ""
+  #check regmodel file is correct
+  if regmodel_name != None: 
+    if not regmodel_name.endswith(".sv"):
+      parser.error("reg model filfe must a systemverilog file")
+    if not os.path.exists(regmodel_name):
+      parser.error(regmodel_name+" reg model file is not exists")
   #get testbench directory
   if   testbench_level == "ut" : testbench_path=os.getenv('UT_PATH')
   elif testbench_level == "it" : testbench_path=os.getenv('IT_PATH')
   elif testbench_level == "st" : testbench_path=os.getenv('ST_PATH')
   testbench_path = testbench_path + "/" + testbench_name
   #create testbench
-  build_dir(testbench_path,regmodel_name)
+  build_dir(testbench_path)
   #create envrionment
   if(env_name != None):
     if("_env" not in env_name):
@@ -609,6 +675,11 @@ def build():
       agt_name = agt_name + "_agent"
     env_path = testbench_path + "/bench/" + env_name
     build_agent(env_path,agt_name,env_name)
+  #create reg model
+  if(regmodel_name != None):
+    regmod_path = testbench_path + "/bench/reg_model"
+    build_regmod(regmod_path,regmodel_name)
+    
 
 if __name__ == "__main__":
   build()

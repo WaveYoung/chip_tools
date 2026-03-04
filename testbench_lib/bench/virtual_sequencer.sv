@@ -9,6 +9,8 @@ class virtual_sequencer extends uvm_sequencer;
 	`uvm_component_utils_begin(virtual_sequencer)
 	`uvm_component_utils_end
 
+	//regmodel pointer
+
 	//delcare sub sequenver
 
 	//function new

@@ -4,6 +4,8 @@
 //common_lib
 `include "common_lib/lib_pkg.sv"
 
+//include reg model
+
 //include package file
 
 //import packages

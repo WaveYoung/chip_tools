@@ -82,7 +82,8 @@ class GenRgm:
 
     def genUVMFile(self, filename):
         # file header
-        header_file = os.getenv('CHIP_TOOLS')+"/file_header.txt"
+        script_path = os.path.dirname(os.path.abspath(__file__))
+        header_file = script_path+"/file_header.txt"
         with open(header_file, 'r', encoding='utf-8') as f:
           header_info = f.read()
         reg_name_list = filename.split('/')
@@ -127,7 +128,7 @@ class GenRgm:
                 for fd in rgmObj._properties['fields']:
                     uvmFile.write('    %s = uvm_reg_field::type_id::create("%s");\n' % (fd['field'], fd['field']))
                 for fd in rgmObj._properties['fields']:
-                    uvmFile.write('    %s.configure(this, %0d, %s, "%s", 0, \'h%s, 1, 1, 1);\n' % (fd['field'], int(fd['bitpos_end'])-int(fd['bitpos_start'])+1, fd['bitpos_start'], fd['field_access'], fd['reset_value'].replace('0x','')))
+                    uvmFile.write('    %s.configure(this, %0d, %s, "%s", 0, \'h%s, 1, 0, 0);\n' % (fd['field'], int(fd['bitpos_end'])-int(fd['bitpos_start'])+1, fd['bitpos_start'], fd['field_access'], fd['reset_value'].replace('0x','')))
                 uvmFile.write('  endfunction\n')
                 uvmFile.write('\
   function void sample(\n\
@@ -209,14 +210,21 @@ endclass:regfile*/\n\n')
 def analy_cmd():
   parser = argparse.ArgumentParser(description="this script for regmodel generate",epilog="the end")
   parser.add_argument("-i","--inputf",help="which regmodel csv file you want use. eg:-i <regmodel_input_csv_file_path> or --inputf=<regmodel_input_csv_file_path>.",type=str,required=True)
-  parser.add_argument("-o","--outputf",help="ouput system_verilog regmodle file name(default currentdir/reg_mod.sv). eg:-o <regmodle_output_sv_file_path> or --outputf=<regmodle_output_sv_file_path>.",type=str,default="./reg_mod.sv")
+  parser.add_argument("-o","--outputf",help="ouput system_verilog regmodle file name(default currentdir/reg_model.sv). eg:-o <regmodle_output_sv_file_path> or --outputf=<regmodle_output_sv_file_path>.",type=str,default="./reg_model.sv")
   try:
     args = parser.parse_args()
-    print(args)
+    #print(args)
     input_file = args.inputf
     output_file = args.outputf
   except:
     sys.exit(-1)
+  #check input file is correct
+  if not input_file.endswith(".csv"):
+      print(input_file+" is not a csv file!")
+      sys.exit(-1)
+  if not os.path.exists(input_file):
+     print(input_file+" is not exists!")
+     sys.exit(-1)
   return [input_file,output_file]
 
 #generate uvm register model from csv file
