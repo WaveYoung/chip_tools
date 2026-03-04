@@ -38,7 +38,10 @@ module automatic dump_wave();
     end
     //vcd
     else if(wave_type == "vcd") begin
-      $vcdpluson();
+      $vcdpluson(0,tb_top);
+      if(dump_mda == 1) begin
+        $vcdplusmemon();
+      end
     end
   end
 endmodule:dump_wave

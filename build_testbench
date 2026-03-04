@@ -541,7 +541,7 @@ def build_regmod(dir_path,regmod_file):
     #instance adapter reg model in base_test
     file_name = dir_path +"/../base_test.sv"
     insert_file(file_name,"\t"+adpt_name+" adapter;\n\t"+adpt_name+" mon_adapter;\n\t//uvm_reg_predictor#(bus_transaction) mon_predictor;","//register model",0)
-    insert_file(file_name,"\tadapter = new(\"adapter\");\n\tmon_adapter = new(\"mon_adapter\");","//create regmodel and adapter",0)
+    insert_file(file_name,"\tadapter = new(\"adapter\");\n\tmon_adapter = new(\"mon_adapter\");\n\t//mon_predictor=new(\"mon_predictor\",this)","//create regmodel and adapter",0)
     insert_file(file_name,"\t//mon_predictor.map="+inst_reg_model+".map\n\t//mon_predictor.adapter = mon_adapter;\n\t//env.bus_agt.ap.connect(mon_predictor.bus_in);","//connect regmodel adapter and predictor",0)
   #define pointer in virtual sequencer
   reg_model = "reg_model"

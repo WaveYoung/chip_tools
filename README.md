@@ -131,6 +131,7 @@ notice: if set agent_name or reg_model, env_name must be set first.
 
 # 5 run case or caselist
    use prun command + options as below to run case or caselist    
+   note: you must source sourceme file in verfication env. 
    ```
   usage: prun [-h] [--comp COMP] [--sim SIM] [-d | -da] [-c] [-s SEED]
             [-rt RUNTIMES]
